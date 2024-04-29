@@ -9,15 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Returns all current entries
+// Returns all current entries from db.json
 func GetGames(c *gin.Context) {
-	games := db.ReadFile("testData/db.json")
+	games := db.ReadGameEntry("testData/db.json")
 	c.IndentedJSON(http.StatusOK, games)
 }
 
-// Creates new entry.
+// Creates new Game entry in the db.json
 func CreateNew(c *gin.Context) {
-	games := db.ReadFile("testData/db.json")
+	games := db.ReadGameEntry("testData/db.json")
 	var newGame data.GameEntry
 
 	err := c.BindJSON(&newGame)
@@ -25,25 +25,20 @@ func CreateNew(c *gin.Context) {
 		return
 	}
 
-	// Create new object and fill initial.
-	if len(games) == 0 {
+	// Check if game exists
+	if !util.GameExists(games, newGame) {
 		games = append(games, newGame)
-		db.CreateNew(games)
+		db.CreateNewFile(games, "testData/"+"db"+".json")
+		db.CheckAndCreateDir(newGame.GameTitle)
 		c.IndentedJSON(http.StatusOK, games)
 		return
 	}
-	if !util.StructExists(games, newGame) {
-		games = append(games, newGame)
-		db.CreateNew(games)
-		c.IndentedJSON(http.StatusOK, newGame)
-		return
-	}
-	c.String(http.StatusBadRequest, "Bad value")
+	c.String(http.StatusBadRequest, "Duplicate Entry")
 }
 
-// Update game.
+// Update game entry in db.json
 func UpdateGame(c *gin.Context) {
-	games := db.ReadFile("testData/db.json")
+	games := db.ReadGameEntry("testData/db.json")
 	var newGame data.GameEntry
 
 	err := c.BindJSON(&newGame)
@@ -53,12 +48,33 @@ func UpdateGame(c *gin.Context) {
 
 	// If entry exists then update the details.
 	for index, element := range games {
-		if element.Title == newGame.Title {
+		if element.GameTitle == newGame.GameTitle {
 			games[index].Details = newGame.Details
 		}
 	}
 
 	// Write to new file
-	db.CreateNew(games)
+	db.CreateNewFile(games, "testData/"+"db"+".json")
 	c.IndentedJSON(http.StatusOK, newGame)
+}
+
+// Creates new play entry in the game directory.
+func AddPlayEntry(c *gin.Context) {
+	var newEntry data.PlayEntry
+	err := c.BindJSON(&newEntry)
+	if err != nil {
+		return
+	}
+
+	allEntries := db.ReadPlayEntry("testData/" + newEntry.GameTitle + "details.json")
+	// Check if game exists
+	if !util.EntryExists(allEntries, newEntry) {
+		allEntries = append(allEntries, newEntry)
+		db.CreateNewFile(allEntries, "testData/"+newEntry.GameTitle+"details.json")
+		c.IndentedJSON(http.StatusOK, allEntries)
+		return
+	}
+	c.String(http.StatusBadRequest, "Duplicate Entry")
+
+	c.IndentedJSON(http.StatusOK, allEntries)
 }

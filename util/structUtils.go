@@ -2,9 +2,18 @@ package util
 
 import "gametracker/data"
 
-func StructExists(arr []data.GameEntry, entry data.GameEntry) bool {
+func GameExists(arr []data.GameEntry, entry data.GameEntry) bool {
 	for _, element := range arr {
-		if element.Title == entry.Title {
+		if element.GameTitle == entry.GameTitle {
+			return true
+		}
+	}
+	return false
+}
+
+func EntryExists(arr []data.PlayEntry, entry data.PlayEntry) bool {
+	for _, element := range arr {
+		if element.GameTitle == entry.GameTitle {
 			return true
 		}
 	}

@@ -8,27 +8,50 @@ import (
 	"os"
 )
 
-func CreateNew(g []data.GameEntry) {
+type structTypes interface {
+	[]data.GameEntry | []data.PlayEntry
+}
+
+func CreateNewFile[T structTypes](jsonData T, fullLocation string) {
 	// encode to json object
 
-	file, err := os.Create("testData/" + "db" + ".json")
+	file, err := os.Create(fullLocation)
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	defer file.Close()
 	encoder := json.NewEncoder(file)
-	encoder.Encode(g)
+	encoder.Encode(jsonData)
 }
 
-func ReadFile(jsonLocation string) []data.GameEntry {
+func ReadGameEntry(jsonLocation string) []data.GameEntry {
 	content, err := os.ReadFile(jsonLocation)
 	if err != nil {
 		log.Println(err)
 	}
-	fmt.Println("Successfully Opened users.json")
 
 	games := []data.GameEntry{}
-
 	json.Unmarshal(content, &games)
+
 	return games
+}
+
+func ReadPlayEntry(jsonLocation string) []data.PlayEntry {
+	content, err := os.ReadFile(jsonLocation)
+	if err != nil {
+		log.Println(err)
+	}
+
+	allEntries := []data.PlayEntry{}
+	json.Unmarshal(content, &allEntries)
+
+	return allEntries
+}
+
+func CheckAndCreateDir(dirName string) {
+	err := os.Mkdir("testData/"+dirName, os.ModePerm)
+	if err == nil {
+		log.Println(err)
+	}
 }
