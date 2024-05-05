@@ -11,14 +11,24 @@ func main() {
 
 	router := gin.Default()
 
-	router.GET("/getAllGames", api.GetGames)
-	router.POST("/newGameEntry", api.CreateNewGameEntry)
-	router.PUT("/updateGameEntry", api.UpdateGameEntry)
-	router.POST("/addPlayEntry", api.AddPlayEntry)
-	router.PUT("/updatePlayEntry", api.UpdatePlayEntry)
+	db := setupProperApi("json")
+	router.GET("/getAllGames", db.GetGames)
+	router.POST("/newGameEntry", db.CreateNewGameEntry)
+	router.PUT("/updateGameEntry", db.UpdateGameEntry)
+	router.POST("/addPlayEntry", db.AddPlayEntry)
+	router.PUT("/updatePlayEntry", db.UpdatePlayEntry)
 
 	err := router.RunTLS(":8080", "certificate.pem", "private.key")
 	if err != nil {
 		log.Println(err)
+	}
+}
+
+func setupProperApi(dbType string) api.ApiModel {
+	switch dbType {
+	case "db":
+		return api.DBApi{}
+	default:
+		return api.JSONApi{}
 	}
 }

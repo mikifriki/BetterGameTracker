@@ -9,18 +9,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type JSONApi struct{}
+
 // Returns all current entries from db.json
-func GetGames(c *gin.Context) {
+func (JSONApi) GetGames(c *gin.Context) {
 	games, err := db.ReadGameEntries("testData/db.json")
 	if err != nil {
 		c.IndentedJSON(http.StatusBadRequest, "No games found")
 		return
 	}
+
 	c.IndentedJSON(http.StatusOK, games)
 }
 
 // Creates new Game entry in the db.json
-func CreateNewGameEntry(c *gin.Context) {
+func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 	games, _ := db.ReadGameEntries("testData/db.json")
 	var newGame data.GameEntry
 
@@ -42,11 +45,12 @@ func CreateNewGameEntry(c *gin.Context) {
 }
 
 // Update game entry in db.json
-func UpdateGameEntry(c *gin.Context) {
+func (JSONApi) UpdateGameEntry(c *gin.Context) {
 	games, readErr := db.ReadGameEntries("testData/db.json")
 	if readErr != nil {
 		c.IndentedJSON(http.StatusBadRequest, "No Game Entries found")
 	}
+
 	var newGame data.GameEntry
 	updatedEntry := false
 	err := c.BindJSON(&newGame)
@@ -74,7 +78,7 @@ func UpdateGameEntry(c *gin.Context) {
 }
 
 // Creates new play entry in the game directory.
-func AddPlayEntry(c *gin.Context) {
+func (JSONApi) AddPlayEntry(c *gin.Context) {
 	var newEntry data.PlayEntry
 	err := c.BindJSON(&newEntry)
 	if err != nil {
@@ -100,7 +104,7 @@ func AddPlayEntry(c *gin.Context) {
 }
 
 // Updates a play entry.
-func UpdatePlayEntry(c *gin.Context) {
+func (JSONApi) UpdatePlayEntry(c *gin.Context) {
 	var existingEntry data.PlayEntry
 	err := c.BindJSON(&existingEntry)
 	if err != nil {
@@ -113,7 +117,7 @@ func UpdatePlayEntry(c *gin.Context) {
 	// If duplicate exists then update the details
 	if readErr == nil {
 		for index, entry := range *existingEntries {
-			if entry.Id == existingEntry.Details.Id {
+			if (entry.Id == existingEntry.Details.Id) && entry != existingEntry.Details {
 				// Update the array entry by index.
 				(*existingEntries)[index] = existingEntry.Details
 			}
