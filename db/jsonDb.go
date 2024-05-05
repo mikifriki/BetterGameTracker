@@ -49,8 +49,8 @@ func ReadPlayEntries(jsonLocation string) (*[]data.GameEntryDetails, error) {
 	return allEntries, nil
 }
 
-func CheckAndCreateDir(dirName string) {
-	err := os.Mkdir("testData/"+dirName, os.ModePerm)
+func CheckAndCreateDir(dir string) {
+	err := os.Mkdir(dir, os.ModePerm)
 	if err == nil {
 		log.Println(err)
 	}

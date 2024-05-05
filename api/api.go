@@ -13,7 +13,7 @@ type JSONApi struct{}
 
 // Returns all current entries from db.json
 func (JSONApi) GetGames(c *gin.Context) {
-	games, err := db.ReadGameEntries("testData/db.json")
+	games, err := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	if err != nil {
 		c.IndentedJSON(http.StatusBadRequest, "No games found")
 		return
@@ -24,7 +24,7 @@ func (JSONApi) GetGames(c *gin.Context) {
 
 // Creates new Game entry in the db.json
 func (JSONApi) CreateNewGameEntry(c *gin.Context) {
-	games, _ := db.ReadGameEntries("testData/db.json")
+	games, _ := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	var newGame data.GameEntry
 
 	bindErr := c.BindJSON(&newGame)
@@ -36,8 +36,8 @@ func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 	// Check if game exists
 	if !util.GameExists(games, newGame) {
 		*games = append(*games, newGame)
-		db.CreateNewFile(*games, "testData/"+"db"+".json")
-		db.CheckAndCreateDir(newGame.GameTitle)
+		db.CreateNewFile(*games, util.GlobalConfig.MainJsonDbDirectory+"db.json")
+		db.CheckAndCreateDir(util.GlobalConfig.MainJsonDbDirectory + newGame.GameTitle)
 		c.IndentedJSON(http.StatusOK, games)
 		return
 	}
@@ -46,9 +46,10 @@ func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 
 // Update game entry in db.json
 func (JSONApi) UpdateGameEntry(c *gin.Context) {
-	games, readErr := db.ReadGameEntries("testData/db.json")
+	games, readErr := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	if readErr != nil {
 		c.IndentedJSON(http.StatusBadRequest, "No Game Entries found")
+		return
 	}
 
 	var newGame data.GameEntry
@@ -73,7 +74,7 @@ func (JSONApi) UpdateGameEntry(c *gin.Context) {
 	}
 
 	// Write to new file
-	db.CreateNewFile(*games, "testData/"+"db"+".json")
+	db.CreateNewFile(*games, util.GlobalConfig.MainJsonDbDirectory+"db.json")
 	c.IndentedJSON(http.StatusOK, newGame)
 }
 
@@ -86,7 +87,7 @@ func (JSONApi) AddPlayEntry(c *gin.Context) {
 		return
 	}
 
-	existingEntries, readErr := db.ReadPlayEntries("testData/" + newEntry.GameTitle + "/details.json")
+	existingEntries, readErr := db.ReadPlayEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json" + newEntry.GameTitle + "/details.json")
 
 	// If error is nil then check for a duplicate entry
 	if readErr == nil {
@@ -99,7 +100,7 @@ func (JSONApi) AddPlayEntry(c *gin.Context) {
 	}
 
 	*existingEntries = append(*existingEntries, newEntry.Details)
-	db.CreateNewFile(*existingEntries, "testData/"+newEntry.GameTitle+"/details.json")
+	db.CreateNewFile(*existingEntries, util.GlobalConfig.MainJsonDbDirectory+newEntry.GameTitle+"/details.json")
 	c.IndentedJSON(http.StatusOK, existingEntries)
 }
 
@@ -112,7 +113,7 @@ func (JSONApi) UpdatePlayEntry(c *gin.Context) {
 		return
 	}
 
-	existingEntries, readErr := db.ReadPlayEntries("testData/" + existingEntry.GameTitle + "/details.json")
+	existingEntries, readErr := db.ReadPlayEntries(util.GlobalConfig.MainJsonDbDirectory + existingEntry.GameTitle + "/details.json")
 
 	// If duplicate exists then update the details
 	if readErr == nil {
@@ -126,6 +127,6 @@ func (JSONApi) UpdatePlayEntry(c *gin.Context) {
 		c.IndentedJSON(http.StatusBadRequest, "No play entries found")
 		return
 	}
-	db.CreateNewFile(*existingEntries, "testData/"+existingEntry.GameTitle+"/details.json")
+	db.CreateNewFile(*existingEntries, util.GlobalConfig.MainJsonDbDirectory+existingEntry.GameTitle+"/details.json")
 	c.IndentedJSON(http.StatusOK, existingEntries)
 }

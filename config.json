@@ -1,0 +1,7 @@
+{
+    "ServerPort": "8080",
+    "MainJsonDbDirectory": "JsonDB/",
+    "PathToCertificate":   "certificate.pem",
+    "PathToPrivatekey":    "private.key",
+    "DefaultDB":           "json"
+}
