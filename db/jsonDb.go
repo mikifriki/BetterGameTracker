@@ -9,7 +9,7 @@ import (
 )
 
 type structTypes interface {
-	[]data.GameEntry | []data.PlayEntry
+	[]data.GameEntry | []data.GameEntryDetails
 }
 
 func CreateNewFile[T structTypes](jsonData T, fullLocation string) {
@@ -25,28 +25,28 @@ func CreateNewFile[T structTypes](jsonData T, fullLocation string) {
 	encoder.Encode(jsonData)
 }
 
-func ReadGameEntry(jsonLocation string) []data.GameEntry {
+func ReadGameEntries(jsonLocation string) (*[]data.GameEntry, error) {
+	games := &[]data.GameEntry{}
 	content, err := os.ReadFile(jsonLocation)
 	if err != nil {
-		log.Println(err)
+		return games, err
 	}
 
-	games := []data.GameEntry{}
 	json.Unmarshal(content, &games)
 
-	return games
+	return games, nil
 }
 
-func ReadPlayEntry(jsonLocation string) []data.PlayEntry {
+func ReadPlayEntries(jsonLocation string) (*[]data.GameEntryDetails, error) {
+	allEntries := &[]data.GameEntryDetails{}
 	content, err := os.ReadFile(jsonLocation)
 	if err != nil {
-		log.Println(err)
+		return allEntries, err
 	}
 
-	allEntries := []data.PlayEntry{}
 	json.Unmarshal(content, &allEntries)
 
-	return allEntries
+	return allEntries, nil
 }
 
 func CheckAndCreateDir(dirName string) {

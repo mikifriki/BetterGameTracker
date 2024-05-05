@@ -21,7 +21,13 @@ type PlayEntry struct {
 	Details   GameEntryDetails
 }
 
+type PlayEntries struct {
+	GameTitle string
+	Details   []GameEntryDetails
+}
+
 type GameEntryDetails struct {
+	Id                int32
 	PlaythroughRating string
 	CompletionDate    string
 	PlatformPlayedOn  string
@@ -29,6 +35,7 @@ type GameEntryDetails struct {
 	CompletionRate    string
 	Coop              string
 	Location          string
+	PlayReview        Review
 }
 
 type Review struct {

@@ -11,24 +11,29 @@ import (
 
 // Returns all current entries from db.json
 func GetGames(c *gin.Context) {
-	games := db.ReadGameEntry("testData/db.json")
+	games, err := db.ReadGameEntries("testData/db.json")
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "No games found")
+		return
+	}
 	c.IndentedJSON(http.StatusOK, games)
 }
 
 // Creates new Game entry in the db.json
-func CreateNew(c *gin.Context) {
-	games := db.ReadGameEntry("testData/db.json")
+func CreateNewGameEntry(c *gin.Context) {
+	games, _ := db.ReadGameEntries("testData/db.json")
 	var newGame data.GameEntry
 
-	err := c.BindJSON(&newGame)
-	if err != nil {
+	bindErr := c.BindJSON(&newGame)
+	if bindErr != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Could not create JSON object")
 		return
 	}
 
 	// Check if game exists
 	if !util.GameExists(games, newGame) {
-		games = append(games, newGame)
-		db.CreateNewFile(games, "testData/"+"db"+".json")
+		*games = append(*games, newGame)
+		db.CreateNewFile(*games, "testData/"+"db"+".json")
 		db.CheckAndCreateDir(newGame.GameTitle)
 		c.IndentedJSON(http.StatusOK, games)
 		return
@@ -37,24 +42,34 @@ func CreateNew(c *gin.Context) {
 }
 
 // Update game entry in db.json
-func UpdateGame(c *gin.Context) {
-	games := db.ReadGameEntry("testData/db.json")
+func UpdateGameEntry(c *gin.Context) {
+	games, readErr := db.ReadGameEntries("testData/db.json")
+	if readErr != nil {
+		c.IndentedJSON(http.StatusBadRequest, "No Game Entries found")
+	}
 	var newGame data.GameEntry
-
+	updatedEntry := false
 	err := c.BindJSON(&newGame)
 	if err != nil {
 		return
 	}
 
 	// If entry exists then update the details.
-	for index, element := range games {
+	for index, element := range *games {
 		if element.GameTitle == newGame.GameTitle {
-			games[index].Details = newGame.Details
+			(*games)[index].Details = newGame.Details
+			updatedEntry = true
+			break
 		}
 	}
 
+	if !updatedEntry {
+		c.IndentedJSON(http.StatusBadRequest, "Failed to update game entry")
+		return
+	}
+
 	// Write to new file
-	db.CreateNewFile(games, "testData/"+"db"+".json")
+	db.CreateNewFile(*games, "testData/"+"db"+".json")
 	c.IndentedJSON(http.StatusOK, newGame)
 }
 
@@ -63,18 +78,50 @@ func AddPlayEntry(c *gin.Context) {
 	var newEntry data.PlayEntry
 	err := c.BindJSON(&newEntry)
 	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Could not create JSON object")
 		return
 	}
 
-	allEntries := db.ReadPlayEntry("testData/" + newEntry.GameTitle + "details.json")
-	// Check if game exists
-	if !util.EntryExists(allEntries, newEntry) {
-		allEntries = append(allEntries, newEntry)
-		db.CreateNewFile(allEntries, "testData/"+newEntry.GameTitle+"details.json")
-		c.IndentedJSON(http.StatusOK, allEntries)
+	existingEntries, readErr := db.ReadPlayEntries("testData/" + newEntry.GameTitle + "/details.json")
+
+	// If error is nil then check for a duplicate entry
+	if readErr == nil {
+		for _, entry := range *existingEntries {
+			if entry.Id == newEntry.Details.Id {
+				c.IndentedJSON(http.StatusBadRequest, "Duplicate Detail Entry")
+				return
+			}
+		}
+	}
+
+	*existingEntries = append(*existingEntries, newEntry.Details)
+	db.CreateNewFile(*existingEntries, "testData/"+newEntry.GameTitle+"/details.json")
+	c.IndentedJSON(http.StatusOK, existingEntries)
+}
+
+// Updates a play entry.
+func UpdatePlayEntry(c *gin.Context) {
+	var existingEntry data.PlayEntry
+	err := c.BindJSON(&existingEntry)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Could not create JSON object")
 		return
 	}
-	c.String(http.StatusBadRequest, "Duplicate Entry")
 
-	c.IndentedJSON(http.StatusOK, allEntries)
+	existingEntries, readErr := db.ReadPlayEntries("testData/" + existingEntry.GameTitle + "/details.json")
+
+	// If duplicate exists then update the details
+	if readErr == nil {
+		for index, entry := range *existingEntries {
+			if entry.Id == existingEntry.Details.Id {
+				// Update the array entry by index.
+				(*existingEntries)[index] = existingEntry.Details
+			}
+		}
+	} else {
+		c.IndentedJSON(http.StatusBadRequest, "No play entries found")
+		return
+	}
+	db.CreateNewFile(*existingEntries, "testData/"+existingEntry.GameTitle+"/details.json")
+	c.IndentedJSON(http.StatusOK, existingEntries)
 }
