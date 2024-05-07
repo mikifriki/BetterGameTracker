@@ -1,23 +1,23 @@
 package data
 
 type GameEntry struct {
-	GameTitle string
+	GameTitle string `binding:"required"`
 	Details   VideoGameDetails
 }
 
 type VideoGameDetails struct {
-	Description     string
-	ReleasePlatform string
-	ReleaseDate     string
-	Developer       string
-	MetaRating      string
-	UserRating      string
-	PhysicalCopy    string
-	CoverImage      string
+	Description     string `binding:"required"`
+	ReleasePlatform string `binding:"required"`
+	ReleaseDate     string `binding:"required"`
+	Developer       string `binding:"required"`
+	MetaRating      string `binding:"required"`
+	UserRating      string `binding:"required"`
+	PhysicalCopy    string `binding:"required"`
+	CoverImage      string `binding:"required"`
 }
 
 type PlayEntry struct {
-	GameTitle string
+	GameTitle string `binding:"required"`
 	Details   GameEntryDetails
 }
 
@@ -27,14 +27,14 @@ type PlayEntries struct {
 }
 
 type GameEntryDetails struct {
-	Id                int32
-	PlaythroughRating string
-	CompletionDate    string
-	PlatformPlayedOn  string
-	TimeToBeat        string
-	CompletionRate    string
+	Id                int32  `binding:"required"`
+	PlaythroughRating string `binding:"required"`
+	CompletionDate    string `binding:"required"`
+	PlatformPlayedOn  string `binding:"required"`
+	TimeToBeat        string `binding:"required"`
+	CompletionRate    string `binding:"required"`
 	Coop              string
-	Location          string
+	Location          string `binding:"required"`
 	PlayReview        Review
 }
 

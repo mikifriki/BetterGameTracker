@@ -10,6 +10,7 @@ var GlobalConfig Config = Config{}
 type Config struct {
 	ServerPort          string
 	MainJsonDbDirectory string
+	CoverImageDirectory string
 	PathToCertificate   string
 	PathToPrivatekey    string
 	DefaultDB           string

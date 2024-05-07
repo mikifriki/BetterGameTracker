@@ -24,6 +24,7 @@ func main() {
 	}
 	// Create default directories.
 	db.CheckAndCreateDir(util.GlobalConfig.MainJsonDbDirectory)
+	db.CheckAndCreateDir(util.GlobalConfig.CoverImageDirectory)
 
 	// Start web server
 	router := gin.Default()
@@ -32,6 +33,7 @@ func main() {
 
 	router.GET("/getAllGames", db.GetGames)
 	router.POST("/newGameEntry", db.CreateNewGameEntry)
+	router.POST("/uploadCoverImage", db.UploadCoverImage)
 	router.PUT("/updateGameEntry", db.UpdateGameEntry)
 	router.POST("/addPlayEntry", db.AddPlayEntry)
 	router.PUT("/updatePlayEntry", db.UpdatePlayEntry)

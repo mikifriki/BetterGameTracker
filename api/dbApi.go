@@ -18,6 +18,11 @@ func (DBApi) CreateNewGameEntry(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "Database API CreateNewGameEntry")
 }
 
+// Creates new Game Cover Image entry in the db.json
+func (DBApi) UploadCoverImage(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, "Database API UploadCoverImage")
+}
+
 // Update game entry in db.json
 func (DBApi) UpdateGameEntry(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "Database API UpdateGameEntry")

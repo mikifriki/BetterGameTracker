@@ -1,9 +1,11 @@
 package api
 
 import (
+	"fmt"
 	"gametracker/data"
 	"gametracker/db"
 	"gametracker/util"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +43,27 @@ func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, games)
 		return
 	}
+
 	c.String(http.StatusBadRequest, "Duplicate Entry")
+}
+
+// Creates new Game entry in the db.json
+func (JSONApi) UploadCoverImage(c *gin.Context) {
+
+	// Check file size
+	// Check that file is an image
+	// Check which game the file should be assosiated to
+	// single file
+	file, _ := c.FormFile("file")
+	name := c.PostForm("GameTitle")
+	log.Println(name)
+
+	// Forces the image to be in png format but should work fine for most images
+	file.Filename = name + ".png"
+	// Upload the file to specific dst.
+	c.SaveUploadedFile(file, util.GlobalConfig.CoverImageDirectory+file.Filename)
+
+	c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 }
 
 // Update game entry in db.json
@@ -115,12 +137,14 @@ func (JSONApi) UpdatePlayEntry(c *gin.Context) {
 
 	existingEntries, readErr := db.ReadPlayEntries(util.GlobalConfig.MainJsonDbDirectory + existingEntry.GameTitle + "/details.json")
 
-	// If duplicate exists then update the details
+	// Add checks to only edit changed fields in the json.
+	// Currently if the user only send half of the data then rest of it is lost.
 	if readErr == nil {
 		for index, entry := range *existingEntries {
 			if (entry.Id == existingEntry.Details.Id) && entry != existingEntry.Details {
-				// Update the array entry by index.
+				// Update the array entry by index. This is a hard reset and will cause a reset if not all data is sent.
 				(*existingEntries)[index] = existingEntry.Details
+
 			}
 		}
 	} else {

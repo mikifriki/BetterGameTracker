@@ -1,6 +1,7 @@
 {
     "ServerPort": "8080",
     "MainJsonDbDirectory": "JsonDB/",
+    "CoverImageDirectory":  "JsonDB/CoverImages/",
     "PathToCertificate":   "certificate.pem",
     "PathToPrivatekey":    "private.key",
     "DefaultDB":           "json"
