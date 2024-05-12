@@ -1,6 +1,7 @@
 package data
 
 type GameEntry struct {
+	HrefTitle string
 	GameTitle string `binding:"required"`
 	Details   VideoGameDetails
 }
@@ -17,8 +18,8 @@ type VideoGameDetails struct {
 }
 
 type PlayEntry struct {
-	GameTitle string `binding:"required"`
-	Details   GameEntryDetails
+	GameTitle string           `binding:"required"`
+	Details   GameEntryDetails `binding:"required"`
 }
 
 type PlayEntries struct {
