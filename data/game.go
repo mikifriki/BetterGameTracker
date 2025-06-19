@@ -1,49 +1,50 @@
 package data
 
 type GameEntry struct {
-	HrefTitle string
-	GameTitle string `binding:"required"`
-	Details   VideoGameDetails
+	Id        string           `json:"id"`
+	HrefTitle string           `json:"hrefTitle"`
+	GameTitle string           `binding:"required" json:"gameTitle"`
+	Details   VideoGameDetails `json:"details"`
 }
 
 type VideoGameDetails struct {
-	Description     string `binding:"required"`
-	ReleasePlatform string `binding:"required"`
-	ReleaseDate     string `binding:"required"`
-	Developer       string `binding:"required"`
-	MetaRating      string `binding:"required"`
-	UserRating      string `binding:"required"`
-	PhysicalCopy    string `binding:"required"`
-	CoverImage      string `binding:"required"`
+	Description     string `binding:"required" json:"description"`
+	ReleasePlatform string `binding:"required" json:"releasePlatform"`
+	ReleaseDate     string `binding:"required" json:"releaseDate"`
+	Developer       string `binding:"required" json:"developer"`
+	MetaRating      string `binding:"required" json:"metaRating"`
+	UserRating      string `binding:"required" json:"userRating"`
+	PhysicalCopy    string `binding:"required" json:"physicalCopy"`
+	CoverImageURL   string `json:"coverImageURL"`
 }
 
 type PlayEntry struct {
-	GameTitle string           `binding:"required"`
-	Details   GameEntryDetails `binding:"required"`
+	GameTitle string           `binding:"required" json:"gameTitle"`
+	Details   GameEntryDetails `binding:"required" json:"details"`
 }
 
 type PlayEntries struct {
-	GameTitle string
-	Details   []GameEntryDetails
+	GameTitle string             `json:"gameTitle"`
+	Details   []GameEntryDetails `json:"details"`
 }
 
 type GameEntryDetails struct {
-	Id                int32  `binding:"required"`
-	PlaythroughRating string `binding:"required"`
-	CompletionDate    string `binding:"required"`
-	PlatformPlayedOn  string `binding:"required"`
-	TimeToBeat        string `binding:"required"`
-	CompletionRate    string `binding:"required"`
-	Coop              string
-	Location          string `binding:"required"`
-	PlayReview        Review
+	Id                string `json:"id"`
+	PlaythroughRating string `binding:"required" json:"playthroughRating"`
+	CompletionDate    string `binding:"required" json:"completionDate"`
+	PlatformPlayedOn  string `binding:"required" json:"platformPlayedOn"`
+	TimeToBeat        string `binding:"required" json:"timeToBeat"`
+	CompletionRate    string `binding:"required" json:"completionRate"`
+	Coop              string `json:"coop"`
+	Location          string `binding:"required" json:"location"`
+	PlayReview        string `json:"playReview"`
 }
 
 type Review struct {
-	ReviewDate  string
-	ReviewTitle string
-	Review      string
-	Rating      string
+	ReviewDate  string `json:"reviewDate"`
+	ReviewTitle string `json:"reviewTitle"`
+	Review      string `json:"review"`
+	Rating      string `json:"rating"`
 }
 
 type Image struct {

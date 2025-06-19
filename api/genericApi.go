@@ -4,9 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ApiModel interface {
+type Model interface {
 	GetGames(c *gin.Context)
 	CreateNewGameEntry(c *gin.Context)
+	DeleteGameEntry(c *gin.Context)
 	GetGameData(c *gin.Context)
 	UploadCoverImage(c *gin.Context)
 	GetCoverImage(c *gin.Context)

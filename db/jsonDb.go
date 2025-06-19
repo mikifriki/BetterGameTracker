@@ -13,16 +13,20 @@ type structTypes interface {
 }
 
 func CreateNewFile[T structTypes](jsonData T, fullLocation string) {
-	// encode to json object
-
 	file, err := os.Create(fullLocation)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	defer file.Close()
 	encoder := json.NewEncoder(file)
-	encoder.Encode(jsonData)
+	encoderErr := encoder.Encode(jsonData)
+	if encoderErr != nil {
+		return
+	}
+	fileErr := file.Close()
+	if fileErr != nil {
+		return
+	}
 }
 
 func ReadGameEntries(jsonLocation string) (*[]data.GameEntry, error) {
@@ -51,6 +55,21 @@ func ReadPlayEntries(jsonLocation string) (*[]data.GameEntryDetails, error) {
 
 func CheckAndCreateDir(dir string) {
 	err := os.Mkdir(dir, os.ModePerm)
+	if err == nil {
+		log.Println(err)
+	}
+}
+
+func DeleteDir(dir string) {
+	err := os.RemoveAll(dir)
+	if err == nil {
+
+		log.Println(err)
+	}
+}
+
+func DeleteFile(dir string) {
+	err := os.Remove(dir)
 	if err == nil {
 		log.Println(err)
 	}

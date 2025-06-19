@@ -4,9 +4,8 @@ import (
 	"gametracker/api"
 	"gametracker/db"
 	"gametracker/util"
-	"log"
-
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 func main() {
@@ -35,19 +34,21 @@ func main() {
 	router.GET("/getAllGames", db.GetGames)
 	router.GET("/getGameEntry", db.GetGameData)
 	router.POST("/newGameEntry", db.CreateNewGameEntry)
+	router.DELETE("/deleteGameEntry/:id", db.DeleteGameEntry)
 	router.POST("/uploadCoverImage", db.UploadCoverImage)
 	router.GET("/getCoverImage", db.GetCoverImage)
 	router.PUT("/updateGameEntry", db.UpdateGameEntry)
 	router.POST("/addPlayEntry", db.AddPlayEntry)
 	router.PUT("/updatePlayEntry", db.UpdatePlayEntry)
-	router.Run()
+	err := router.Run()
+
 	//err := router.RunTLS(":"+util.GlobalConfig.ServerPort, util.GlobalConfig.PathToCertificate, util.GlobalConfig.PathToPrivatekey)
-	//if err != nil {
-	//	log.Println(err)
-	// }
+	if err != nil {
+		log.Println(err)
+	}
 }
 
-func defaultAPI(dbType string) api.ApiModel {
+func defaultAPI(dbType string) api.Model {
 	switch dbType {
 	case "db":
 		return api.DBApi{}
@@ -56,13 +57,13 @@ func defaultAPI(dbType string) api.ApiModel {
 	}
 }
 
-// Not safe and should not be used. This is for testing only
+// CORSMiddleware Lazy CORS fix but it works for now.
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
