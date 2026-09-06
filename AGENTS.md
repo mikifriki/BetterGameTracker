@@ -1,384 +1,143 @@
 # BetterGameTracker — Codex Instructions
 
-## Purpose
-
-BetterGameTracker is a game-tracking application that can run:
-
-1. Locally as a self-contained native application.
-2. As a hosted web service.
-
-The same backend codebase must support both modes.
-
----
-
-## Source of Truth
+## Priorities
 
 When instructions conflict, use this order:
 
-1. The current user task.
-2. This `AGENTS.md`.
-3. `PROJECT_SPEC.md`.
-4. Existing BetterGameTracker source code.
-5. Assumptions.
+1. Current user task
+2. `AGENTS.md`
+3. `PROJECT_SPEC.md`
+4. Existing code
+5. Assumptions
 
-Do not invent product requirements when the specification is silent.
+Do not invent requirements. Do not make unrelated architectural or product changes.
 
-Ask or document uncertainty instead of silently introducing major architectural changes.
+## Implementation Style
 
----
+Keep the code simple, clean, minimal, and efficient.
 
-## Required Backend Stack
+Prefer the smallest correct implementation that fits the existing architecture.
+
+- Write straightforward, idiomatic Java.
+- Prefer simple control flow that is easy to follow locally.
+- Avoid unnecessary abstraction, indirection, and boilerplate.
+- Do not add helper methods unless they improve readability or are reused.
+- Avoid named local variables used only once when the expression is clearer inline.
+- Do not introduce interfaces, wrappers, utilities, builders, generic base classes, or other abstractions without a concrete need.
+- Prefer existing project patterns over introducing new ones.
+- Do not add defensive complexity for hypothetical requirements.
+- Do not refactor unrelated code while implementing a task.
+- Do not optimize speculatively, but avoid obviously wasteful work.
+- Keep relationship management explicit. Avoid methods that call back into each other or require tracing several methods to understand one operation.
+- Remove code made obsolete by the requested change rather than keeping unnecessary compatibility helpers, unless compatibility is required.
+
+When multiple solutions are valid, prefer the one with fewer moving parts and less code while remaining clear and correct.
+
+## Backend
 
 Use:
 
 - Java
 - Spring Boot
 - Spring MVC
-- Spring Data JPA
-- Hibernate
+- Spring Data JPA / Hibernate
 - Flyway
+- SQLite for local deployments
+- PostgreSQL for hosted deployments
 
-Local database:
+Use constructor injection.
 
-- SQLite
+Controllers handle HTTP concerns, services handle application/business logic, and repositories handle persistence.
 
-Hosted database:
+Do not put business logic or persistence logic in controllers.
 
-- PostgreSQL
+Flyway owns schema evolution. Hibernate validates the schema; it does not mutate it.
 
-Hosted authentication:
+Never modify an already released Flyway migration. Preserve existing user data.
 
-- Google OAuth / OpenID Connect
-- Spring Security
+## Domain
 
-Local authentication:
+Persistent domain objects use UUID identifiers unless explicitly specified otherwise.
 
-- None
-
----
-
-## Deployment Requirements
-
-### Local
-
-The local application must:
-
-- Run without requiring Java to be installed.
-- Run without Docker.
-- Run without a separately installed database.
-- Use SQLite.
-- Bind to loopback/localhost only by default.
-- Serve the compiled web frontend.
-- Be distributable as a GraalVM native executable.
-- Require no external runtime from the end user.
-
-### Hosted
-
-The hosted application may:
-
-- Run as a regular Spring Boot JAR.
-- Run inside a container.
-- Use PostgreSQL.
-- Use Google OAuth/OIDC.
-
-The hosted version does not need to use GraalVM Native Image.
-
----
-
-## Architecture
-
-Use this dependency direction:
-
-```text
-HTTP Controller
-      |
-      v
-Application Service
-      |
-      v
-Repository
-      |
-      v
-JPA / Hibernate
-      |
-      v
-Database
-```
-
-Controllers handle HTTP concerns.
-
-Services contain application/business logic.
-
-Repositories handle persistence.
-
-Do not put database queries or filesystem persistence logic directly in controllers.
-
----
-
-## Domain Model
-
-The initial domain data must be based on the existing Go BetterGameTracker implementation.
-
-### Game
-
-- Represents one game in the library.
-- Has zero or more `PlayEntry` objects.
-- Has zero or one cover image.
-
-### PlayEntry
-
-- Represents one playthrough/play instance of a Game.
-- Belongs to exactly one Game.
-- Has zero or more Reviews.
-- Has zero or more optional `PlayTimeEntry` objects.
-
-### PlayTimeEntry
-
-- Belongs to exactly one PlayEntry.
-- Has a UUID id, required `LocalDate date`, positive integer `durationMinutes`, and optional notes.
-- Multiple entries for the same PlayEntry and date are allowed.
-- Currently limited to domain/JPA and schema support; repository, service, API, DTO, and frontend functionality are deferred.
-
-### Review
-
-- Belongs to exactly one PlayEntry.
-- Does NOT belong directly to Game.
-- A PlayEntry may have multiple Reviews.
-
-Relationship:
+Relationships:
 
 ```text
 Game 1 ---- N PlayEntry
-
 PlayEntry 1 ---- N Review
-
 PlayEntry 1 ---- N PlayTimeEntry
-
 Game 1 ---- 0..1 Cover
 ```
 
-Use stable UUID identifiers for persistent domain objects unless a specific requirement says otherwise.
+A `PlayEntry` belongs to exactly one `Game`.
 
----
+A `Review` belongs to exactly one `PlayEntry`, not directly to a `Game`.
 
-## Legacy Go Code
+A `PlayTimeEntry` belongs to exactly one `PlayEntry`.
 
-The existing Go implementation is the source of truth for the initial data fields.
+`PlayTimeEntry` contains:
 
-Preserve the meaning of existing fields.
+- UUID id
+- required `LocalDate date`
+- positive integer `durationMinutes`
+- optional notes
 
-Expected conceptual mapping:
+Multiple `PlayTimeEntry` records for the same play entry and date are valid.
 
-```text
-Go                         Java
+Do not remove or reinterpret existing domain data without explicit approval.
 
-GameEntry              ->  Game
-GameEntryDetails       ->  PlayEntry
-PlayEntry              ->  PlayEntry-related API/domain model
-Review                 ->  Review
-Cover image handling   ->  Cover handling
-```
+## Local and Hosted Modes
 
-Do not blindly port the old Go architecture.
+The same backend codebase supports both modes. Do not duplicate business logic between them.
 
-In particular:
+Local:
 
-- Do not keep JSON files as the primary database.
-- Do not reproduce persistence logic inside HTTP handlers.
-- Do not use game titles as stable identifiers when UUIDs are available.
-- Do not remove existing data fields without explicit approval.
+- SQLite
+- no authentication
+- loopback binding by default
+- local cover storage
+- no external Java, Docker, or database requirement for the end user
+- GraalVM native executable
 
----
+Hosted:
 
-## Database Rules
+- PostgreSQL
+- Google OAuth/OIDC with Spring Security
+- server-configured network binding
+- JAR or container deployment
 
-Flyway owns schema creation and migration.
+## API and Frontend
 
-Hibernate does not own schema evolution.
+The API lives under `/api/v1/`.
 
-Use schema validation rather than automatic schema mutation.
+Use resource-oriented REST APIs rather than action-style routes.
 
-Expected configuration principle:
+The backend must remain independent of the frontend framework and may serve compiled frontend assets.
 
-```text
-hibernate.ddl-auto = validate
-```
+Do not expose frontend-framework-specific concepts in backend domain or service code.
 
-Rules:
+## Scope Discipline
 
-- Prefer Flyway migrations that work on both SQLite and PostgreSQL.
-- Database-specific migrations are allowed when genuinely necessary.
-- Never edit an already released migration.
-- Add a new migration for every schema change.
-- Preserve user data across application upgrades.
+Implement only what the current task requires.
 
----
+Do not proactively implement future features such as synchronization, local/hosted migration, remote endpoints, multiple libraries, LAN mode, backup formats, conflict resolution, or automatic updates.
 
-## Frontend Independence
+Architecture should not unnecessarily block likely future work, but do not add abstractions solely for hypothetical future requirements.
 
-The backend must not depend on a specific frontend framework.
+## Before Significant Changes
 
-Angular, React, Vue, or another frontend may be used independently.
+For changes to architecture, persistence strategy, domain relationships, authentication, or deployment:
 
-The backend only needs the compiled static frontend output.
+1. Check `PROJECT_SPEC.md`.
+2. Inspect the existing implementation.
+3. Preserve existing data semantics and agreed architecture.
+4. Surface conflicts instead of silently changing architecture.
 
-The backend should serve:
+For ordinary implementation tasks, do not perform unnecessary architecture analysis when the existing design and task are clear.
 
-```text
-/
-```
+## Validation
 
-for frontend assets.
+Run the relevant existing tests after changes.
 
-The application API must live under:
+Add or update tests when behavior changes or when the task explicitly requires them.
 
-```text
-/api/v1/
-```
-
-The frontend communicates with the backend through the HTTP API.
-
-Do not expose frontend-framework-specific concepts in backend services or domain logic.
-
----
-
-## API Design
-
-Prefer resource-oriented REST endpoints.
-
-Examples:
-
-```text
-GET    /api/v1/games
-POST   /api/v1/games
-
-GET    /api/v1/games/{gameId}
-PUT    /api/v1/games/{gameId}
-DELETE /api/v1/games/{gameId}
-
-GET    /api/v1/games/{gameId}/plays
-POST   /api/v1/games/{gameId}/plays
-
-GET    /api/v1/games/{gameId}/plays/{playId}
-PUT    /api/v1/games/{gameId}/plays/{playId}
-DELETE /api/v1/games/{gameId}/plays/{playId}
-
-GET    /api/v1/games/{gameId}/plays/{playId}/reviews
-POST   /api/v1/games/{gameId}/plays/{playId}/reviews
-```
-
-Avoid action-style routes such as:
-
-```text
-/getAllGames
-/newGameEntry
-/deleteGameEntry
-```
-
-unless required for compatibility.
-
----
-
-## Current Scope
-
-The backend should support:
-
-- Game CRUD
-- PlayEntry CRUD
-- Review CRUD
-- Cover image support
-- SQLite local persistence
-- PostgreSQL hosted persistence
-- Flyway migrations
-- Framework-independent REST API
-- Serving compiled frontend assets
-- Local native packaging
-- Hosted JAR/container deployment
-
----
-
-## Future Scope — Do Not Implement Unless Explicitly Requested
-
-Do not proactively implement:
-
-- Configurable remote BetterGameTracker endpoints
-- Local request proxying to remote BetterGameTracker servers
-- Local-to-hosted migration
-- Hosted-to-local migration
-- Portable backup format
-- Bidirectional synchronization
-- Conflict resolution
-- Offline cloud synchronization
-- Multiple libraries per user
-- LAN access mode
-- Automatic application updates
-
-The architecture should avoid blocking these features, but they are not part of the initial implementation.
-
----
-
-## Local vs Hosted Behavior
-
-### Local profile
-
-Use:
-
-```text
-SQLite
-No authentication
-127.0.0.1 binding
-Local cover storage
-GraalVM native distribution
-```
-
-### Hosted profile
-
-Use:
-
-```text
-PostgreSQL
-Google OAuth/OIDC
-Server-configured network binding
-Hosted cover storage
-JAR or container distribution
-```
-
-Do not duplicate business logic between profiles.
-
----
-
-## Coding Guidance
-
-Prefer:
-
-- Clear Java types.
-- Small services with explicit responsibilities.
-- Constructor injection.
-- Immutable DTOs where practical.
-- Explicit transaction boundaries.
-- Domain-relevant names.
-- Tests for business behavior.
-- Integration tests for persistence when database behavior matters.
-
-Avoid:
-
-- Unnecessary abstraction layers.
-- Generic base services/repositories without demonstrated need.
-- Hidden schema changes.
-- Business logic in controllers.
-- Frontend-framework coupling.
-- Premature implementation of future cloud/sync features.
-
----
-
-## Before Making a Significant Change
-
-Before changing architecture, persistence strategy, domain relationships, authentication behavior, or deployment behavior:
-
-1. Check this file.
-2. Check `PROJECT_SPEC.md`.
-3. Inspect the current implementation.
-4. Preserve existing data semantics.
-5. Do not silently change agreed architecture.
-
-If a requested implementation conflicts with these rules, surface the conflict explicitly.
+Keep tests focused on observable behavior. Do not add tests solely to exercise implementation details.

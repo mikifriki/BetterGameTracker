@@ -8,10 +8,11 @@ The primary goal is to allow a user to maintain a personal video game library co
 
 - Games
 - Individual play entries/playthroughs for games
+- Play-time entries associated with individual play entries
 - Reviews associated with individual play entries
 - Game cover images
 
-BetterGameTracker must support two primary deployment models:
+BetterGameTracker supports two primary deployment models:
 
 1. A completely local application for ordinary Windows and macOS users.
 2. A hosted web application operated on a server.
@@ -31,11 +32,11 @@ The application itself is fundamentally a web application. The native local exec
 
 ---
 
-# 2. Core Design Principles
+## 2. Core Design Principles
 
-## 2.1 One Backend
+### 2.1 One Backend
 
-There should not be separate "local BetterGameTracker" and "server BetterGameTracker" implementations.
+There must not be separate local and hosted BetterGameTracker implementations.
 
 The same Java backend codebase must support both deployment models.
 
@@ -44,36 +45,45 @@ Differences between local and hosted installations should primarily be configura
 Conceptually:
 
 ```text
-                   BetterGameTracker
-                          |
-                   Spring Boot
-                          |
-             +------------+------------+
-             |                         |
-          Local                       Hosted
-             |                         |
-          SQLite                   PostgreSQL
-             |                         |
-      Native executable          JAR / Container
+                  BetterGameTracker
+                         |
+                    Spring Boot
+                         |
+            +------------+------------+
+            |                         |
+          Local                     Hosted
+            |                         |
+          SQLite                  PostgreSQL
+            |                         |
+     Native executable          JAR / Container
 ```
 
-Business logic, domain models, API contracts, and application services should be shared.
+Business logic, domain models, API contracts, and application services must be shared.
+
+### 2.2 Simple Architecture
+
+BetterGameTracker should remain simple, understandable, and maintainable.
+
+Do not introduce architectural layers or abstractions solely for theoretical purity or hypothetical future requirements.
+
+### 2.3 Preserve Existing Data Semantics
+
+The existing Go BetterGameTracker implementation defines the baseline game-tracking data that must survive the Java rewrite.
+
+Names, Java types, relationships, and architecture may be improved while preserving the meaning of existing data.
+
+Explicitly approved new requirements may extend the legacy model.
+
+Existing fields must not be silently removed or reinterpreted.
 
 ---
 
-# 3. Technology Stack
+## 3. Technology Stack
 
-## Backend
-
-Language:
+Backend:
 
 ```text
 Java
-```
-
-Framework:
-
-```text
 Spring Boot
 Spring MVC
 ```
@@ -83,19 +93,7 @@ Persistence:
 ```text
 Spring Data JPA
 Hibernate
-```
-
-Database migrations:
-
-```text
 Flyway
-```
-
-Authentication for hosted deployments:
-
-```text
-Spring Security
-Google OAuth / OpenID Connect
 ```
 
 Local database:
@@ -110,16 +108,23 @@ Hosted database:
 PostgreSQL
 ```
 
-Local executable:
+Hosted authentication:
+
+```text
+Spring Security
+Google OAuth / OpenID Connect
+```
+
+Local distribution:
 
 ```text
 GraalVM Native Image
 ```
 
-Hosted deployment:
+Hosted distribution:
 
 ```text
-Regular Spring Boot JAR
+Spring Boot JAR
 or
 Container image
 ```
@@ -128,47 +133,52 @@ The hosted application does not need to use GraalVM Native Image.
 
 ---
 
-# 4. Frontend Architecture
+## 4. Frontend Architecture
 
-The BetterGameTracker backend must NOT depend on a specific frontend framework.
+The BetterGameTracker backend must not depend on a specific frontend framework.
 
-The frontend is a separate web application that consumes the BetterGameTracker REST API.
+The frontend is a separate web application that consumes the BetterGameTracker HTTP API.
 
-The frontend may be implemented using:
+The frontend may be implemented using Angular, React, Vue, another web framework, or plain web technologies.
 
-- Angular
-- React
-- Vue
-- Another web framework
-- Plain web technologies
-
-The choice of frontend framework must not affect the backend architecture.
-
-The contract between frontend and backend is the BetterGameTracker HTTP API.
+The frontend framework must not affect backend architecture.
 
 Conceptually:
 
 ```text
-Any Web Frontend
-       |
-       | HTTP / REST
-       v
+Web Frontend
+     |
+     | HTTP / REST
+     v
 BetterGameTracker API
-       |
-       v
+     |
+     v
 Application Services
-       |
-       v
+     |
+     v
 Persistence
 ```
 
+The REST API is the architectural contract between the frontend and backend.
+
+The backend must not assume that the bundled web frontend is the only possible API consumer.
+
+Future clients may include:
+
+- Web frontend
+- Mobile application
+- CLI
+- Third-party clients
+
+Backend services and domain logic must not expose frontend-framework-specific concepts.
+
 ---
 
-# 5. Serving the Frontend
+## 5. Serving the Frontend
 
-Although the frontend is architecturally independent, the BetterGameTracker backend should be capable of serving its compiled static assets.
+The BetterGameTracker backend should be capable of serving compiled frontend assets.
 
-A frontend build is expected to eventually produce files such as:
+A frontend build is expected to produce files such as:
 
 ```text
 index.html
@@ -177,15 +187,15 @@ index.html
 assets/
 ```
 
-These files can be packaged into the BetterGameTracker backend.
+These compiled files may be packaged into the backend.
 
-Spring Boot then serves:
+Spring Boot serves frontend assets under:
 
 ```text
 /
 ```
 
-while application API endpoints are served under:
+Application API endpoints are served under:
 
 ```text
 /api/v1/
@@ -202,15 +212,15 @@ GET /api/v1/games
 POST /api/v1/games
 ```
 
-Serving the frontend from Spring Boot is a deployment mechanism only.
+Serving frontend files through Spring Boot is a deployment mechanism only.
 
-Backend code must not contain assumptions about Angular, React, or another particular frontend framework.
+Frontend source code is not required at runtime.
 
 ---
 
-# 6. Repository Structure
+## 6. Repository Structure
 
-The frontend and backend should remain separate projects/modules.
+The frontend and backend should remain separate projects or modules.
 
 Recommended high-level structure:
 
@@ -229,34 +239,32 @@ BetterGameTracker/
 +-- PROJECT_SPEC.md
 ```
 
-The backend build may consume the compiled frontend output when producing a release.
-
-It should not require frontend source code at runtime.
+The backend build may consume compiled frontend output when producing a release.
 
 ---
 
-# 7. Local Application
+## 7. Local Application
 
-The local BetterGameTracker application is intended for ordinary users who do not want to host a server.
+The local BetterGameTracker installation is intended for ordinary users who do not want to host a server.
 
-The expected user experience is:
+Expected flow:
 
 ```text
 User launches BetterGameTracker
-            |
-            v
+           |
+           v
 Native backend starts
-            |
-            v
-SQLite database opened
-            |
-            v
+           |
+           v
+SQLite database opens
+           |
+           v
 Web server starts on localhost
-            |
-            v
+           |
+           v
 Default browser opens
-            |
-            v
+           |
+           v
 BetterGameTracker frontend loads
 ```
 
@@ -264,39 +272,28 @@ The user interacts with BetterGameTracker through their normal browser.
 
 There is no dedicated native desktop GUI.
 
----
+### Local Authentication
 
-# 8. Local Distribution
+Local installations have no authentication.
 
-The Java application should be compiled using GraalVM Native Image for local releases.
+There must be no:
 
-Example release targets:
+- Local account
+- Local login
+- Local password
+- Artificial default user
 
-```text
-Windows:
-BetterGameTracker.exe
+The local installation is initially a single-user application.
 
-macOS:
-BetterGameTracker native application/binary
-```
+### Local Networking
 
-The end user must NOT need a Java installation.
-
-The executable contains everything required to start BetterGameTracker.
-
-Platform-specific native binaries may be built using CI, such as GitHub Actions.
-
----
-
-# 9. Local Networking
-
-The local application should bind to the loopback interface by default:
+The application must bind to the loopback interface by default:
 
 ```text
 127.0.0.1
 ```
 
-It should NOT bind to:
+It must not bind to:
 
 ```text
 0.0.0.0
@@ -304,120 +301,19 @@ It should NOT bind to:
 
 by default.
 
-Therefore, an ordinary local installation should not automatically expose the BetterGameTracker API to other devices on the LAN.
+An ordinary local installation therefore must not automatically expose BetterGameTracker to other devices on the LAN.
 
-Example:
+The exact local port strategy has not yet been finalized.
 
-```text
-http://127.0.0.1:<port>
-```
+### Local Database
 
-The exact port strategy has not yet been finalized.
-
----
-
-# 10. Local Authentication
-
-Local BetterGameTracker installations have:
-
-```text
-NO AUTHENTICATION
-```
-
-The local installation is considered a single-user application.
-
-There should be no:
-
-- Local account
-- Local login
-- Local password
-- Artificial "default user"
-
-The localhost-only network boundary is the initial protection for the local instance.
-
----
-
-# 11. Hosted Application
-
-The same BetterGameTracker backend can also run as a hosted service.
-
-A hosted deployment can run as:
-
-```text
-java -jar better-game-tracker.jar
-```
-
-or as a container.
-
-Unlike the local version, the hosted server may depend on infrastructure controlled by the server operator.
-
-The initial planned hosted database is:
-
-```text
-PostgreSQL
-```
-
----
-
-# 12. Hosted Authentication
-
-Hosted BetterGameTracker uses authentication.
-
-The currently selected authentication provider is:
-
-```text
-Google OAuth / OpenID Connect
-```
-
-Spring Security should be used to integrate Google authentication.
-
-BetterGameTracker should still maintain its own internal user identity.
-
-Google authenticates the person; BetterGameTracker owns the application user and the user's data.
-
-Conceptually:
-
-```text
-Google
-   |
-   | authentication
-   v
-BetterGameTracker User
-   |
-   v
-User Library
-```
-
-The exact hosted user schema will be designed when hosted authentication is implemented.
-
-Local installations must not require Google authentication.
-
----
-
-# 13. Local Database
-
-Local installations use:
-
-```text
-SQLite
-```
-
-SQLite is embedded into the application.
+Local installations use SQLite.
 
 The user must not need to install or configure a database server.
 
-Conceptually:
+The SQLite database should live in the operating system's standard application-data location rather than beside the executable.
 
-```text
-BetterGameTracker.exe
-        |
-        v
-bettergametracker.db
-```
-
-The SQLite database should live in the operating system's normal application-data location rather than beside the executable.
-
-Example conceptual locations:
+Conceptual locations:
 
 Windows:
 
@@ -431,483 +327,88 @@ macOS:
 ~/Library/Application Support/BetterGameTracker/
 ```
 
-The exact paths can be finalized during implementation.
+Exact paths may be finalized during implementation.
+
+### Local Distribution
+
+The local application should be distributed using GraalVM Native Image.
+
+Example release targets:
+
+```text
+Windows:
+BetterGameTracker.exe
+
+macOS:
+BetterGameTracker native application/binary
+```
+
+The user must not need a Java installation.
+
+Platform-specific native binaries may be produced using CI such as GitHub Actions.
 
 ---
 
-# 14. Hosted Database
+## 8. Hosted Application
 
-Hosted BetterGameTracker uses:
+The same BetterGameTracker backend can run as a hosted service.
 
-```text
-PostgreSQL
-```
-
-The domain model and application services should not contain SQLite-specific or PostgreSQL-specific behavior.
-
-Database differences belong in infrastructure/configuration where possible.
-
----
-
-# 15. Database Access
-
-BetterGameTracker uses:
+The hosted application may run as:
 
 ```text
-Spring Data JPA
-Hibernate
+java -jar better-game-tracker.jar
 ```
 
-JPA entities represent the persisted BetterGameTracker domain.
+or as a container.
 
-Repositories should use Spring Data JPA where appropriate.
+The server operator may provide infrastructure dependencies that ordinary local users must not be required to install.
 
-Business logic must not be placed in repository implementations.
+### Hosted Database
 
-Typical flow:
+Hosted BetterGameTracker uses PostgreSQL.
+
+The application domain and business logic must not contain SQLite-specific or PostgreSQL-specific behavior.
+
+Database-specific differences belong in infrastructure or configuration where possible.
+
+### Hosted Authentication
+
+Hosted BetterGameTracker uses authentication.
+
+The selected authentication provider is:
 
 ```text
-Controller
-    |
-    v
-Service
-    |
-    v
-Repository
-    |
-    v
-JPA / Hibernate
-    |
-    v
-Database
+Google OAuth / OpenID Connect
 ```
 
----
+Spring Security should integrate Google authentication.
 
-# 16. Database Schema Management
+BetterGameTracker must maintain its own internal user identity.
 
-BetterGameTracker uses:
-
-```text
-Flyway
-```
-
-Flyway owns database schema creation and migration.
-
-Hibernate must NOT be responsible for automatically modifying production/user schemas.
-
-The intended Hibernate configuration is equivalent to:
-
-```text
-ddl-auto = validate
-```
+Google authenticates the person; BetterGameTracker owns the application user and the user's data.
 
 Conceptually:
 
 ```text
-Application startup
-        |
-        v
-Flyway
-        |
-        | migrate database
-        v
-Current schema
-        |
-        v
-Hibernate validates mappings
-        |
-        v
-Application starts
+Google
+  |
+  | authentication
+  v
+BetterGameTracker User
+  |
+  v
+User Library
 ```
 
-This is especially important for local installations because users may keep the same SQLite database across many BetterGameTracker versions.
+The exact hosted user schema will be designed when hosted authentication is implemented.
+
+Local installations must not require Google authentication.
 
 ---
 
-# 17. Migration Portability
+## 9. Environment Configuration
 
-SQLite and PostgreSQL Flyway migrations should be shared as much as reasonably possible.
-
-Prefer portable SQL when doing so does not significantly compromise the schema.
-
-Conceptually:
-
-```text
-             Flyway migrations
-                    |
-             +------+------+
-             |             |
-             v             v
-          SQLite       PostgreSQL
-```
-
-Database-specific migrations may be introduced when genuinely required.
-
-Do not distort the database design merely to avoid every possible database-specific migration.
-
-Once a migration has shipped to users, it must not be modified.
-
-For example:
-
-```text
-V1__initial_schema.sql
-V2__add_play_entries.sql
-V3__add_reviews.sql
-V4__add_cover_metadata.sql
-```
-
-Future schema changes require new migrations.
-
----
-
-# 18. Existing Go Backend
-
-The existing Go BetterGameTracker backend is the source of truth for the initial application data requirements.
-
-The Java rewrite should NOT arbitrarily redesign or remove existing game-tracking data.
-
-The existing Go structures should be mapped into clearer Java domain/JPA entities.
-
-Names and types may be improved while preserving their meaning.
-
-For example:
-
-```text
-Go                          Java domain
-
-GameEntry             ->    Game
-GameEntryDetails      ->    PlayEntry
-Review                ->    Review
-cover image handling  ->    Cover handling
-```
-
-The existing fields in the Go implementation should be reviewed during implementation and carried into the Java model unless there is a specific reason to change them.
-
----
-
-# 19. Core Domain Hierarchy
-
-The currently agreed core domain is:
-
-```text
-Library
-   |
-   +-- Game
-        |
-        +-- Cover
-        |
-        +-- PlayEntry
-             |
-             +-- Review
-```
-
-Relationships:
-
-```text
-Game       1 ---- N PlayEntry
-
-PlayEntry  1 ---- N Review
-
-Game       1 ---- 0..1 Cover
-```
-
-A Review does NOT directly belong to a Game.
-
-A Review belongs to a particular PlayEntry.
-
----
-
-# 20. Game
-
-`Game` represents a video game in the user's BetterGameTracker library.
-
-The initial fields should be derived from the existing Go `GameEntry` and associated game details structures.
-
-The exact Java field definitions should therefore be created by mapping the existing Go model rather than inventing a new model.
-
-Every Game should have a stable unique identifier.
-
-UUIDs are preferred for persistent domain identifiers because they make future data migration significantly easier.
-
----
-
-# 21. PlayEntry
-
-A `PlayEntry` represents one instance/playthrough of a Game.
-
-One Game can therefore have multiple PlayEntries.
-
-Example:
-
-```text
-Persona 5 Royal
-|
-+-- PlayEntry
-|   Platform: PS4
-|   Completed: 2020
-|
-+-- PlayEntry
-    Platform: PC
-    Completed: 2025
-```
-
-The initial PlayEntry data should come from the existing Go `GameEntryDetails` / `PlayEntry` model.
-
-The exact field list should not be redesigned until the existing Go model is mapped.
-
-Every PlayEntry should have its own stable identifier.
-
-A PlayEntry belongs to exactly one Game.
-
----
-
-# 22. Review
-
-Reviews belong to PlayEntries.
-
-A PlayEntry can have multiple Reviews.
-
-Example:
-
-```text
-Game
-|
-+-- PlayEntry
-    |
-    +-- Review
-    |
-    +-- Review
-```
-
-This is an intentional change/clarification from interpreting reviews as an overall Game review.
-
-There is no single overall Game review in the currently agreed domain model.
-
-The initial Review fields should be based on the Review data already present in the Go backend.
-
-Every Review should have its own stable identifier.
-
----
-
-# 23. Cover Images
-
-A Game can have a cover image.
-
-Cover image support already exists conceptually in the Go backend and must remain supported.
-
-The image itself does not need to be stored as a database BLOB.
-
-Local installations are expected to use filesystem-based cover storage.
-
-Conceptually:
-
-```text
-Application data
-|
-+-- bettergametracker.db
-|
-+-- covers/
-    +-- <game-id>.<extension>
-```
-
-The database may contain metadata/reference information about the cover.
-
-Hosted cover-storage implementation details have not yet been finalized.
-
-The application should avoid unnecessarily coupling domain logic to a specific physical storage implementation.
-
----
-
-# 24. REST API
-
-The frontend communicates with BetterGameTracker through HTTP.
-
-The API should be versioned from the beginning.
-
-Initial namespace:
-
-```text
-/api/v1/
-```
-
-Example conceptual resources:
-
-```text
-/api/v1/games
-
-/api/v1/games/{gameId}
-
-/api/v1/games/{gameId}/plays
-
-/api/v1/games/{gameId}/plays/{playId}
-
-/api/v1/games/{gameId}/plays/{playId}/reviews
-
-/api/v1/games/{gameId}/plays/{playId}/reviews/{reviewId}
-
-/api/v1/games/{gameId}/cover
-```
-
-The exact endpoint contract should be specified during API implementation.
-
-Prefer resource-oriented REST endpoints over action-style names such as:
-
-```text
-/getAllGames
-/newGameEntry
-/deleteGameEntry
-```
-
----
-
-# 25. API Independence
-
-The REST API is the primary architectural contract between the BetterGameTracker backend and its clients.
-
-The backend must not assume that its bundled web frontend is the only API consumer.
-
-Future clients could include:
-
-```text
-BetterGameTracker web frontend
-Mobile application
-CLI
-Third-party client
-```
-
-Therefore, API behavior should remain independent from frontend implementation details.
-
----
-
-# 26. Backend Package Structure
-
-Prefer a feature-oriented package structure rather than putting every controller, entity, repository, and service into global technical packages.
-
-A possible structure is:
-
-```text
-bettergametracker/
-|
-+-- game/
-|   +-- Game
-|   +-- GameController
-|   +-- GameService
-|   +-- GameRepository
-|
-+-- play/
-|   +-- PlayEntry
-|   +-- PlayEntryController
-|   +-- PlayEntryService
-|   +-- PlayEntryRepository
-|
-+-- review/
-|   +-- Review
-|   +-- ReviewController
-|   +-- ReviewService
-|   +-- ReviewRepository
-|
-+-- cover/
-|   +-- CoverController
-|   +-- CoverService
-|   +-- CoverStorage
-|
-+-- security/
-|
-+-- config/
-|
-+-- system/
-|
-+-- migration/
-```
-
-This is guidance rather than an immutable package specification.
-
-Do not introduce unnecessary architectural layers solely for theoretical purity.
-
-BetterGameTracker should remain understandable and maintainable.
-
----
-
-# 27. Controller Responsibilities
-
-Controllers are responsible for HTTP concerns.
-
-Examples:
-
-- Parse requests
-- Validate request format
-- Call application services
-- Produce HTTP responses
-- Map application errors to appropriate HTTP status codes
-
-Controllers should NOT contain:
-
-- Database queries
-- Persistence implementation
-- Large amounts of business logic
-- Filesystem manipulation
-- Database migration logic
-
----
-
-# 28. Service Responsibilities
-
-Application services contain application/business behavior.
-
-Examples:
-
-```text
-GameService
-PlayEntryService
-ReviewService
-CoverService
-```
-
-Services coordinate repositories and other application components.
-
-Example:
-
-```text
-HTTP request
-     |
-     v
-GameController
-     |
-     v
-GameService
-     |
-     v
-GameRepository
-     |
-     v
-Database
-```
-
----
-
-# 29. Repository Responsibilities
-
-Repositories handle persistence.
-
-The initial implementation uses Spring Data JPA / Hibernate.
-
-Repositories should not know about HTTP.
-
-They should not accept objects such as:
-
-```text
-HttpServletRequest
-ResponseEntity
-```
-
-Persistence must remain separated from the web/API layer.
-
----
-
-# 30. Local and Hosted Configuration
-
-The same application should support environment-specific configuration.
+Local and hosted deployments use the same application code with environment-specific configuration.
 
 Conceptually:
 
@@ -930,8 +431,6 @@ Distribution:
 GraalVM native executable
 ```
 
-Hosted:
-
 ```text
 HOSTED
 
@@ -944,11 +443,14 @@ Google OAuth/OIDC
 Network:
 Server configuration
 
+Cover storage:
+Hosted storage implementation
+
 Distribution:
 Spring Boot JAR or container
 ```
 
-Spring profiles or equivalent configuration mechanisms may be used.
+Spring profiles or equivalent mechanisms may be used.
 
 For example:
 
@@ -958,79 +460,438 @@ application-local.yml
 application-hosted.yml
 ```
 
-Do not duplicate application/business logic between profiles.
+Business logic must not be duplicated between deployment profiles.
 
 ---
 
-# 31. Local Native Build
+## 10. Backend Architecture
 
-The local native executable is only a distribution target.
-
-It must not become a separate BetterGameTracker implementation.
-
-Conceptually:
+Use the following dependency direction:
 
 ```text
-Same source code
-     |
-     +-- bootJar
-     |      |
-     |      +-- hosted BetterGameTracker
-     |
-     +-- nativeCompile
-            |
-            +-- local BetterGameTracker
+HTTP Controller
+      |
+      v
+Application Service
+      |
+      v
+Repository
+      |
+      v
+JPA / Hibernate
+      |
+      v
+Database
 ```
 
----
+Controllers handle HTTP concerns.
 
-# 32. Hosted JAR
+Application services contain application and business behavior.
 
-The hosted version may run as a conventional Spring Boot application:
+Repositories handle persistence.
+
+Database queries, filesystem persistence, and business logic must not be placed directly in controllers.
+
+Repositories must not depend on HTTP-specific types such as:
 
 ```text
-java -jar better-game-tracker.jar
+HttpServletRequest
+ResponseEntity
 ```
 
-Because the server operator controls the environment, requiring Java on the hosted infrastructure is acceptable.
-
-This requirement does not apply to local BetterGameTracker users.
+Business logic must not be placed in repository implementations.
 
 ---
 
-# 33. Hosted Container
+## 11. Backend Package Structure
 
-BetterGameTracker may also be packaged as a container for hosted deployment.
+Prefer a feature-oriented package structure rather than global technical packages containing every controller, entity, service, or repository.
 
-Container support is a hosting option.
+A possible structure is:
 
-Docker or another container runtime must NEVER be required for ordinary local BetterGameTracker users.
+```text
+bettergametracker/
+|
++-- game/
+|   +-- Game
+|   +-- GameController
+|   +-- GameService
+|   +-- GameRepository
+|
++-- play/
+|   +-- PlayEntry
+|   +-- PlayEntryController
+|   +-- PlayEntryService
+|   +-- PlayEntryRepository
+|   +-- PlayTimeEntry
+|
++-- review/
+|   +-- Review
+|   +-- ReviewController
+|   +-- ReviewService
+|   +-- ReviewRepository
+|
++-- cover/
+|   +-- CoverController
+|   +-- CoverService
+|   +-- CoverStorage
+|
++-- security/
++-- config/
++-- system/
++-- migration/
+```
+
+This is guidance rather than an immutable package specification.
 
 ---
 
-# 34. Future Remote Endpoint Support
+## 12. Database Schema Management
 
-NOT INITIAL SCOPE.
+BetterGameTracker uses Flyway for schema creation and migration.
 
-BetterGameTracker is intended to eventually allow a local installation to use another BetterGameTracker server as its active backend.
+Flyway owns schema evolution.
+
+Hibernate must validate mappings rather than automatically modifying user or production schemas.
+
+The intended Hibernate behavior is equivalent to:
+
+```text
+ddl-auto = validate
+```
+
+Application startup should conceptually behave as follows:
+
+```text
+Application startup
+       |
+       v
+Flyway
+       |
+       | migrate database
+       v
+Current schema
+       |
+       v
+Hibernate validates mappings
+       |
+       v
+Application starts
+```
+
+This is especially important for local installations because users may keep the same SQLite database across many BetterGameTracker releases.
+
+### Migration Rules
+
+SQLite and PostgreSQL migrations should be shared where reasonably possible.
+
+Prefer portable SQL when doing so does not significantly compromise the schema.
+
+Database-specific migrations are allowed when genuinely required.
+
+Do not distort the database design solely to avoid all database-specific migrations.
+
+Once a migration has shipped to users, it must not be modified.
+
+Future schema changes require new migrations.
 
 Example:
 
 ```text
+V1__initial_schema.sql
+V2__add_play_entries.sql
+V3__add_reviews.sql
+V4__add_cover_metadata.sql
+V5__add_play_time_entries.sql
+```
+
+Application upgrades must preserve existing user data.
+
+---
+
+## 13. Existing Go Backend
+
+The existing Go BetterGameTracker backend is the source of truth for baseline application data requirements.
+
+The Java rewrite must not arbitrarily redesign or remove existing game-tracking data.
+
+The Go structures should be mapped into clearer Java domain and JPA entities.
+
+Names and types may be improved while preserving their meaning.
+
+Conceptual mapping:
+
+```text
+Go                         Java domain
+
+GameEntry             ->   Game
+GameEntryDetails      ->   PlayEntry
+Review                ->   Review
+Cover image handling  ->   Cover handling
+```
+
+Do not blindly port the old Go architecture.
+
+In particular:
+
+- Do not keep JSON files as the primary database.
+- Do not reproduce persistence logic inside HTTP handlers.
+- Do not use game titles as stable identifiers when UUIDs are available.
+- Do not remove or reinterpret existing fields without an explicit requirement.
+
+Explicitly approved new requirements may extend the legacy Go data model.
+
+---
+
+## 14. Core Domain Model
+
+The currently agreed domain hierarchy is:
+
+```text
+Library
+ |
+ +-- Game
+      |
+      +-- Cover
+      |
+      +-- PlayEntry
+           |
+           +-- Review
+           |
+           +-- PlayTimeEntry
+```
+
+Relationships:
+
+```text
+Game          1 ---- N PlayEntry
+
+PlayEntry     1 ---- N Review
+
+PlayEntry     1 ---- N PlayTimeEntry
+
+Game          1 ---- 0..1 Cover
+```
+
+Persistent domain objects should use stable UUID identifiers unless a specific requirement says otherwise.
+
+---
+
+## 15. Game
+
+A `Game` represents a video game in the user's BetterGameTracker library.
+
+The initial fields should be derived from the existing Go `GameEntry` and associated game-detail structures.
+
+The exact Java field definitions should therefore be based on the existing Go model rather than an invented replacement model.
+
+Every Game should have a stable unique identifier.
+
+A Game may have:
+
+- Zero or more PlayEntries
+- Zero or one cover image
+
+---
+
+## 16. PlayEntry
+
+A `PlayEntry` represents one instance or playthrough of a Game.
+
+One Game can have multiple PlayEntries.
+
+Example:
+
+```text
+Persona 5 Royal
+|
++-- PlayEntry
+|   Platform: PS4
+|   Completed: 2020
+|
++-- PlayEntry
+    Platform: PC
+    Completed: 2025
+```
+
+The initial PlayEntry data should be based on the existing Go `GameEntryDetails` / `PlayEntry` model.
+
+Every PlayEntry has its own stable identifier.
+
+A PlayEntry belongs to exactly one Game.
+
+A PlayEntry may have:
+
+- Zero or more Reviews
+- Zero or more PlayTimeEntries
+
+---
+
+## 17. PlayTimeEntry
+
+A `PlayTimeEntry` represents an individual amount of time spent playing during a particular `PlayEntry`.
+
+This allows play time to be recorded incrementally during a playthrough instead of relying only on one total playtime value.
+
+Example:
+
+```text
+PlayEntry
+ |
+ +-- PlayTimeEntry
+ |    Date: 2026-09-01
+ |    Duration: 120 minutes
+ |    Notes: Reached chapter 3
+ |
+ +-- PlayTimeEntry
+      Date: 2026-09-02
+      Duration: 90 minutes
+      Notes: Optional
+```
+
+A PlayTimeEntry contains:
+
+- Stable UUID identifier
+- Required `LocalDate date`
+- Positive integer `durationMinutes`
+- Optional notes
+
+A PlayTimeEntry belongs to exactly one PlayEntry.
+
+A PlayEntry may have zero or more PlayTimeEntries.
+
+Multiple PlayTimeEntries for the same PlayEntry and the same date are valid.
+
+PlayTimeEntry is optional. Existing PlayEntries do not require PlayTimeEntries.
+
+This is an explicitly approved BetterGameTracker requirement and does not originate from the legacy Go implementation.
+
+---
+
+## 18. Review
+
+A `Review` belongs to exactly one PlayEntry.
+
+A PlayEntry can have multiple Reviews.
+
+Example:
+
+```text
+Game
+ |
+ +-- PlayEntry
+      |
+      +-- Review
+      |
+      +-- Review
+```
+
+A Review does not directly belong to a Game.
+
+There is no single overall Game review in the currently agreed domain model.
+
+The initial Review fields should be based on Review data already present in the Go backend.
+
+Every Review should have its own stable identifier.
+
+---
+
+## 19. Cover Images
+
+A Game can have a cover image.
+
+Cover support already exists conceptually in the Go backend and must remain supported.
+
+The image itself does not need to be stored as a database BLOB.
+
+Local installations are expected to use filesystem-based cover storage.
+
+Conceptually:
+
+```text
+Application data
+|
++-- bettergametracker.db
+|
++-- covers/
+    +-- <game-id>.<extension>
+```
+
+The database may contain metadata or reference information about the cover.
+
+Hosted cover-storage implementation details have not yet been finalized.
+
+Domain logic should not be unnecessarily coupled to a particular physical storage implementation.
+
+---
+
+## 20. REST API
+
+The frontend communicates with BetterGameTracker through HTTP.
+
+The API is versioned from the beginning.
+
+Initial namespace:
+
+```text
+/api/v1/
+```
+
+Conceptual resources include:
+
+```text
+/api/v1/games
+
+/api/v1/games/{gameId}
+
+/api/v1/games/{gameId}/plays
+
+/api/v1/games/{gameId}/plays/{playId}
+
+/api/v1/games/{gameId}/plays/{playId}/reviews
+
+/api/v1/games/{gameId}/plays/{playId}/reviews/{reviewId}
+
+/api/v1/games/{gameId}/cover
+```
+
+PlayTimeEntry API endpoints should be defined when PlayTimeEntry API functionality is implemented.
+
+Prefer resource-oriented REST endpoints over action-style routes such as:
+
+```text
+/getAllGames
+/newGameEntry
+/deleteGameEntry
+```
+
+The exact endpoint contracts should be specified during API implementation.
+
+---
+
+## 21. Future Remote Endpoint Support
+
+This is not part of the initial scope.
+
+BetterGameTracker is intended to eventually allow a local installation to use another BetterGameTracker server as its active backend.
+
+Conceptually:
+
+```text
 Browser
-   |
-   v
+  |
+  v
 Local BetterGameTracker process
-   |
-   v
+  |
+  v
 Configured remote BetterGameTracker server
 ```
 
-The browser should continue talking to the local process.
+The browser should continue communicating with the local BetterGameTracker process.
 
-The local BetterGameTracker process would proxy relevant API requests to the configured remote server.
+The local process may eventually proxy relevant requests to the configured remote server.
 
-This avoids coupling the browser directly to remote endpoints and centralizes:
+This could centralize:
 
 - Authentication
 - Remote configuration
@@ -1038,13 +899,13 @@ This avoids coupling the browser directly to remote endpoints and centralizes:
 - Compatibility checking
 - Migration behavior
 
-This capability should be considered during architecture design but should NOT be implemented unless explicitly requested.
+Do not implement remote endpoint support unless explicitly requested.
 
 ---
 
-# 35. Future Local-to-Hosted Migration
+## 22. Future Local-to-Hosted Migration
 
-NOT INITIAL SCOPE.
+This is not part of the initial scope.
 
 A user should eventually be able to start with:
 
@@ -1058,28 +919,29 @@ and later move their library to:
 Hosted BetterGameTracker
 ```
 
-The migration should preserve:
+Migration should preserve:
 
 - Games
 - PlayEntries
+- PlayTimeEntries
 - Reviews
 - Covers
 - Relationships
 - Stable identifiers where practical
 
-Using UUIDs from the beginning is recommended partly to support this future capability.
+Using UUID identifiers from the beginning is partly intended to support this future capability.
 
-Do not implement migration yet unless explicitly requested.
+Do not implement migration unless explicitly requested.
 
 ---
 
-# 36. Future Hosted-to-Local Migration
+## 23. Future Hosted-to-Local Migration
 
-NOT INITIAL SCOPE.
+This is not part of the initial scope.
 
-Users should eventually be able to export hosted BetterGameTracker data and restore/use it locally.
+Users should eventually be able to export hosted BetterGameTracker data and restore or use it locally.
 
-This prevents unnecessary data lock-in and provides a path for backup/restore.
+This provides a path for backup, portability, and avoiding unnecessary data lock-in.
 
 The exact export format has not yet been designed.
 
@@ -1087,11 +949,9 @@ Do not invent or implement the format prematurely.
 
 ---
 
-# 37. Future Synchronization
+## 24. Future Synchronization
 
-NOT INITIAL SCOPE.
-
-Local and hosted BetterGameTracker instances are NOT currently intended to synchronize continuously.
+Continuous synchronization between local and hosted BetterGameTracker instances is not currently planned.
 
 Do not implement:
 
@@ -1101,157 +961,129 @@ Do not implement:
 - Tombstones
 - Distributed change tracking
 
-Endpoint switching and migration will be designed before synchronization is considered.
+Endpoint switching and migration should be designed before synchronization is considered.
 
 The data model should avoid decisions that make future synchronization unnecessarily difficult, but synchronization itself is not a current requirement.
 
 ---
 
-# 38. Current Scope Versus Future Scope
+## 25. Current Scope and Future Scope
 
-Codex and developers must distinguish agreed architecture from future ideas.
+### Current Architecture
 
-## Current architecture
-
-Implement/design around:
+Implement and design around:
 
 - Java
 - Spring Boot
 - Spring MVC
-- JPA/Hibernate
+- Spring Data JPA / Hibernate
 - Flyway
 - SQLite locally
-- PostgreSQL hosted
+- PostgreSQL when hosted
 - No local authentication
 - Google OAuth/OIDC for hosted authentication
 - GraalVM native local distribution
-- JAR/container hosted distribution
+- JAR or container hosted distribution
 - Browser-based frontend
-- Backend-served static frontend
+- Backend-served compiled frontend
 - Frontend-framework independence
 - Versioned REST API
 - Game
 - PlayEntry
+- PlayTimeEntry belonging to PlayEntry
 - Review belonging to PlayEntry
 - Cover support
 - Existing Go model as baseline data definition
 
-## Future functionality
+### Future Functionality
 
-Do NOT implement without an explicit task:
+Do not implement without an explicit task:
 
 - Endpoint switching
 - Remote proxying
-- Local -> hosted migration
-- Hosted -> local migration
+- Local-to-hosted migration
+- Hosted-to-local migration
 - Portable backup format
 - Local/cloud synchronization
 - Multiple libraries
 - LAN server mode
 - Automatic updates
 
+Architecture should avoid unnecessarily blocking likely future work, but future requirements must not create unnecessary complexity in current implementations.
+
 ---
 
-# 39. Important Development Rule
+## 26. Development Rules
 
 Do not invent new product requirements merely because they appear architecturally convenient.
 
-When implementing domain entities, first inspect the existing Go BetterGameTracker implementation.
+When implementing or changing legacy domain data, inspect the existing Go BetterGameTracker implementation first.
 
-The existing Go code defines the current game-tracking data that needs to survive the rewrite.
+The existing Go code defines the baseline game-tracking data that must survive the rewrite.
+
+Explicitly approved new requirements may extend this model.
 
 Refactoring names, Java types, relationships, and architecture is acceptable.
 
 Silently dropping existing data fields or changing their semantics is not.
 
----
-
-# 40. Development Priorities
-
-The initial backend rewrite should prioritize:
-
-1. Establish Spring Boot project.
-2. Configure local and hosted application profiles.
-3. Map existing Go domain structures to Java entities.
-4. Correct the domain relationship to:
-
-```text
-Game
-  -> PlayEntry
-       -> Review
-```
-
-5. Configure SQLite.
-6. Configure Flyway.
-7. Configure JPA/Hibernate with schema validation.
-8. Implement Game persistence/service/API.
-9. Implement PlayEntry persistence/service/API.
-10. Implement Review persistence/service/API.
-11. Implement cover storage/API.
-12. Serve framework-independent compiled frontend assets.
-13. Produce local GraalVM native build.
-14. Verify PostgreSQL compatibility.
-15. Add hosted authentication when hosted deployment work begins.
-
-Do not begin remote proxy/migration/synchronization functionality as part of the initial rewrite.
+When a requested change conflicts with this specification, surface the conflict rather than silently changing the agreed architecture.
 
 ---
 
-# 41. Architectural Summary
+## 27. Architectural Summary
 
-BetterGameTracker should ultimately look like:
+BetterGameTracker should conceptually look like:
 
 ```text
-                    Web Frontend
-                         |
-                         | REST
-                         v
-                BetterGameTracker API
-                         |
-                  Spring MVC
-                         |
-                 Application Services
-                         |
-                Spring Data JPA
-                         |
-                    Hibernate
-                         |
-              +----------+----------+
-              |                     |
-              v                     v
-           SQLite              PostgreSQL
-            Local                 Hosted
+                   Web Frontend
+                        |
+                        | REST
+                        v
+               BetterGameTracker API
+                        |
+                   Spring MVC
+                        |
+                Application Services
+                        |
+               Spring Data JPA
+                        |
+                   Hibernate
+                        |
+             +----------+----------+
+             |                     |
+             v                     v
+          SQLite              PostgreSQL
+           Local                 Hosted
 ```
 
-Deployment:
+Local deployment:
 
 ```text
-LOCAL
-
 BetterGameTracker native executable
-        |
-        +-- Spring Boot backend
-        +-- REST API
-        +-- compiled web frontend
-        +-- SQLite
-        +-- local cover storage
-        |
-        v
+       |
+       +-- Spring Boot backend
+       +-- REST API
+       +-- compiled web frontend
+       +-- SQLite
+       +-- local cover storage
+       |
+       v
 Default web browser
 ```
 
-```text
-HOSTED
+Hosted deployment:
 
+```text
 Spring Boot JAR / container
-        |
-        +-- REST API
-        +-- compiled web frontend
-        +-- Google OAuth/OIDC
-        +-- PostgreSQL
-        +-- hosted cover storage
-        |
-        v
+       |
+       +-- REST API
+       +-- compiled web frontend
+       +-- Google OAuth/OIDC
+       +-- PostgreSQL
+       +-- hosted cover storage
+       |
+       v
 Web browser
 ```
 
@@ -1259,12 +1091,12 @@ The same backend codebase supports both environments.
 
 ---
 
-# 42. Status
+## 28. Status
 
-This document describes the architecture agreed for BetterGameTracker so far.
+This document describes the currently agreed BetterGameTracker product architecture.
 
-Many lower-level product decisions remain intentionally unspecified and should be decided as implementation progresses.
+Lower-level implementation decisions that are not specified here should be made as implementation progresses.
 
-When there is a conflict between an implementation convenience and this specification, do not silently change the architecture. Document the issue and decide whether the specification should be amended.
+When an implementation convenience conflicts with this specification, do not silently change the architecture. The conflict should be identified and the specification updated only when the architectural decision itself changes.
 
 This document should evolve alongside BetterGameTracker.
