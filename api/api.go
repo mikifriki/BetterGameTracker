@@ -5,6 +5,7 @@ import (
 	"gametracker/data"
 	"gametracker/db"
 	"gametracker/util"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -14,7 +15,7 @@ import (
 
 type JSONApi struct{}
 
-// GetGames Returns a list of all games
+// GetGames Returns all current entries from db.json
 func (JSONApi) GetGames(c *gin.Context) {
 	games, err := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	if err != nil {
@@ -25,7 +26,7 @@ func (JSONApi) GetGames(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, games)
 }
 
-// CreateNewGameEntry Creates new Game entry
+// CreateNewGameEntry Creates new Game entry in the db.json
 func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 	games, _ := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	var newGame data.GameEntry
@@ -36,21 +37,70 @@ func (JSONApi) CreateNewGameEntry(c *gin.Context) {
 		return
 	}
 
-	newGame.Id, _ = util.GenerateID()
-
+	// Check if game exists
 	if !util.GameExists(games, newGame) {
 		newGame.HrefTitle = strings.ReplaceAll(newGame.GameTitle, " ", "")
 		*games = append(*games, newGame)
 		db.CreateNewFile(*games, util.GlobalConfig.MainJsonDbDirectory+"db.json")
 		db.CheckAndCreateDir(util.GlobalConfig.MainJsonDbDirectory + newGame.GameTitle)
-		c.String(http.StatusOK, newGame.Id)
+		c.IndentedJSON(http.StatusOK, games)
 		return
 	}
 
 	c.String(http.StatusBadRequest, "Duplicate Entry")
 }
 
-// UpdateGameEntry Update game entry by id and title
+// GetGameData Get single game info from the db
+func (JSONApi) GetGameData(c *gin.Context) {
+	games, _ := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
+
+	// If entry exists then update the details.
+	for _, element := range *games {
+		if element.GameTitle == c.Query("GameTitle") {
+			c.IndentedJSON(http.StatusOK, element)
+			return
+		}
+	}
+
+	c.String(http.StatusBadRequest, "Duplicate Entry")
+
+}
+
+// UploadCoverImage Creates new Game entry in the db.json
+func (JSONApi) UploadCoverImage(c *gin.Context) {
+
+	// Check file size
+	// Check that file is an image
+	// Check which game the file should be associated to
+	// single file
+	file, _ := c.FormFile("file")
+	name := strings.ReplaceAll(c.PostForm("GameTitle"), " ", "")
+	log.Println(name)
+
+	// Forces the image to be in png format but should work fine for most images
+	file.Filename = name + ".png"
+	// Upload the file to specific dst.
+	err := c.SaveUploadedFile(file, util.GlobalConfig.CoverImageDirectory+file.Filename)
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("'%s' Upload failed!", file.Filename))
+		return
+	}
+
+	c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
+}
+
+// GetCoverImage Creates new Game entry in the db.json
+func (JSONApi) GetCoverImage(c *gin.Context) {
+
+	// Upload the file to specific dst.
+	file, _ := os.ReadFile(util.GlobalConfig.CoverImageDirectory + c.Query("Cover") + ".png")
+
+	c.Header("Content-Disposition", "inline; filename=Drakan1.png")
+	c.Data(http.StatusOK, "image/png", file)
+
+}
+
+// UpdateGameEntry Update game entry in db.json
 func (JSONApi) UpdateGameEntry(c *gin.Context) {
 	games, readErr := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
 	if readErr != nil {
@@ -66,10 +116,10 @@ func (JSONApi) UpdateGameEntry(c *gin.Context) {
 		return
 	}
 
-	// If entry exists then replace the whole object
+	// If entry exists then update the details.
 	for index, element := range *games {
-		if element.Id == newGame.Id {
-			(*games)[index] = newGame
+		if element.GameTitle == newGame.GameTitle {
+			(*games)[index].Details = newGame.Details
 			updatedEntry = true
 			break
 		}
@@ -80,89 +130,9 @@ func (JSONApi) UpdateGameEntry(c *gin.Context) {
 		return
 	}
 
+	// Write to new file
 	db.CreateNewFile(*games, util.GlobalConfig.MainJsonDbDirectory+"db.json")
 	c.IndentedJSON(http.StatusOK, newGame)
-}
-
-func (JSONApi) DeleteGameEntry(c *gin.Context) {
-	games, readErr := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
-	entry := c.Param("id")
-	if readErr != nil {
-		c.IndentedJSON(http.StatusBadRequest, "No Game Entries found")
-		return
-	}
-
-	// Get Element index in array
-	var result []data.GameEntry
-	var removedEntry data.GameEntry
-	for _, element := range *games {
-		if element.Id == entry {
-			removedEntry = element
-			continue
-		}
-		result = append(result, element)
-	}
-
-	// Error checks should be added here
-	db.DeleteDir(util.GlobalConfig.MainJsonDbDirectory + removedEntry.GameTitle)
-	db.DeleteFile(util.GlobalConfig.CoverImageDirectory + removedEntry.GameTitle + ".png")
-	db.CreateNewFile(result, util.GlobalConfig.MainJsonDbDirectory+"db.json")
-
-	c.IndentedJSON(http.StatusOK, removedEntry)
-}
-
-// UploadCoverImage Saves the uploaded cover image
-func (JSONApi) UploadCoverImage(c *gin.Context) {
-	file, _ := c.FormFile("file")
-	gameName := c.PostForm("fileName")
-
-	if file.Size > 4000000 {
-		c.String(http.StatusBadRequest, fmt.Sprintf("Image too large. Please limit size below 4mb"))
-	}
-
-	if file != nil {
-		openedFile, _ := file.Open()
-		buff := make([]byte, 512)
-		openedFile.Read(buff)
-		fileDetails := http.DetectContentType(buff)
-		if fileDetails != "image/jpeg" && fileDetails != "image/png" {
-			c.String(http.StatusBadRequest, fmt.Sprintf("Image is not in jpeg or png format. Please reformat image"))
-		}
-	}
-
-	// Forces the image to be in png format but should work fine for most images
-	if file == nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("Upload failed due to missing file"))
-	}
-
-	name := strings.ReplaceAll(gameName, " ", "")
-	file.Filename = name + ".png"
-
-	c.SaveUploadedFile(file, util.GlobalConfig.CoverImageDirectory+file.Filename)
-	c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
-}
-
-// GetCoverImage Get the cover image for the given game
-func (JSONApi) GetCoverImage(c *gin.Context) {
-	// Upload the file to specific dst.
-	file, _ := os.ReadFile(util.GlobalConfig.CoverImageDirectory + c.Query("Cover") + ".png")
-
-	c.Header("Content-Disposition", "inline; filename=Drakan1.png")
-	c.Data(http.StatusOK, "image/png", file)
-}
-
-// GetGameData Get single game info from the db
-func (JSONApi) GetGameData(c *gin.Context) {
-	games, _ := db.ReadGameEntries(util.GlobalConfig.MainJsonDbDirectory + "db.json")
-
-	for _, element := range *games {
-		if element.GameTitle == c.Query("GameTitle") {
-			c.IndentedJSON(http.StatusOK, element)
-			return
-		}
-	}
-
-	c.String(http.StatusBadRequest, "No Game found")
 }
 
 // AddPlayEntry Creates new play entry in the game directory.
@@ -170,7 +140,7 @@ func (JSONApi) AddPlayEntry(c *gin.Context) {
 	var newEntry data.PlayEntry
 	err := c.BindJSON(&newEntry)
 	if err != nil {
-		c.IndentedJSON(http.StatusBadRequest, "Could not create JSON object"+err.Error())
+		c.IndentedJSON(http.StatusBadRequest, "Could not create JSON object")
 		return
 	}
 
@@ -205,9 +175,11 @@ func (JSONApi) UpdatePlayEntry(c *gin.Context) {
 	changedEntry := false
 
 	// Add checks to only edit changed fields in the json.
+	// Currently, if the user only send half of the data then rest of it is lost.
 	if readErr == nil {
 		for index, entry := range *existingEntries {
 			if entry.Id == existingEntry.Details.Id {
+				// Update the array entry by index. This is a hard reset and will cause a reset if not all data is sent.
 				(*existingEntries)[index] = existingEntry.Details
 				changedEntry = true
 				break

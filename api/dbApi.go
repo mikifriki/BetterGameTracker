@@ -18,11 +18,6 @@ func (DBApi) CreateNewGameEntry(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "Database API CreateNewGameEntry")
 }
 
-// DeleteGameEntry Deletes Game entry in the db.json
-func (DBApi) DeleteGameEntry(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, "Database API CreateNewGameEntry")
-}
-
 // GetGameData Creates new Game entry in the db.json
 func (DBApi) GetGameData(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "Database API GetGameData")

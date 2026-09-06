@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:sqlite:${better-game-tracker.local.database-path}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      connection-init-sql: PRAGMA foreign_keys = ON
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+  flyway:
+    placeholders:
+      uuidType: BLOB
+
+server:
+  address: 127.0.0.1

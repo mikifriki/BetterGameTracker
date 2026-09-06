@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: better-game-tracker
+  profiles:
+    default: local
+  flyway:
+    enabled: true
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: 8080
