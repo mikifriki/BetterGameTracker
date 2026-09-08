@@ -66,15 +66,11 @@ BetterGameTracker should remain simple, understandable, and maintainable.
 
 Do not introduce architectural layers or abstractions solely for theoretical purity or hypothetical future requirements.
 
-### 2.3 Preserve Existing Data Semantics
+### 2.3 Java Domain and Data
 
-The existing Go BetterGameTracker implementation defines the baseline game-tracking data that must survive the Java rewrite.
-
-Names, Java types, relationships, and architecture may be improved while preserving the meaning of existing data.
-
-Explicitly approved new requirements may extend the legacy model.
-
-Existing fields must not be silently removed or reinterpreted.
+The Java domain model defines the application. Domain fields remain product data
+unless explicitly removed. Released database migrations remain immutable; new
+releases evolve the schema through Flyway.
 
 ---
 
@@ -579,7 +575,8 @@ Hibernate validates mappings
 Application starts
 ```
 
-This is especially important for local installations because users may keep the same SQLite database across many BetterGameTracker releases.
+This is especially important after the first release because users may keep the
+same SQLite database across many BetterGameTracker releases.
 
 ### Migration Rules
 
@@ -591,9 +588,11 @@ Database-specific migrations are allowed when genuinely required.
 
 Do not distort the database design solely to avoid all database-specific migrations.
 
-Once a migration has shipped to users, it must not be modified.
+Until the first release, the V1 baseline may be rewritten and development databases
+may be recreated. No development-data upgrade path is required.
 
-Future schema changes require new migrations.
+After the first release, shipped migrations must not be modified. Future schema
+changes require new migrations.
 
 Example:
 
@@ -605,41 +604,13 @@ V4__add_cover_metadata.sql
 V5__add_play_time_entries.sql
 ```
 
-Application upgrades must preserve existing user data.
+Application upgrades after the first release must preserve existing user data.
 
 ---
 
-## 13. Existing Go Backend
+## 13. Application Data
 
-The existing Go BetterGameTracker backend is the source of truth for baseline application data requirements.
-
-The Java rewrite must not arbitrarily redesign or remove existing game-tracking data.
-
-The Go structures should be mapped into clearer Java domain and JPA entities.
-
-Names and types may be improved while preserving their meaning.
-
-Conceptual mapping:
-
-```text
-Go                         Java domain
-
-GameEntry             ->   Game
-GameEntryDetails      ->   PlayEntry
-Review                ->   Review
-Cover image handling  ->   Cover handling
-```
-
-Do not blindly port the old Go architecture.
-
-In particular:
-
-- Do not keep JSON files as the primary database.
-- Do not reproduce persistence logic inside HTTP handlers.
-- Do not use game titles as stable identifiers when UUIDs are available.
-- Do not remove or reinterpret existing fields without an explicit requirement.
-
-Explicitly approved new requirements may extend the legacy Go data model.
+The Java backend defines application data. Games and their children use UUIDs.
 
 ---
 
@@ -681,9 +652,7 @@ Persistent domain objects should use stable UUID identifiers unless a specific r
 
 A `Game` represents a video game in the user's BetterGameTracker library.
 
-The initial fields should be derived from the existing Go `GameEntry` and associated game-detail structures.
-
-The exact Java field definitions should therefore be based on the existing Go model rather than an invented replacement model.
+The Java Game model defines the game metadata. A title-derived URL key is not part of the model.
 
 Every Game should have a stable unique identifier.
 
@@ -714,7 +683,7 @@ Persona 5 Royal
     Completed: 2025
 ```
 
-The initial PlayEntry data should be based on the existing Go `GameEntryDetails` / `PlayEntry` model.
+The Java PlayEntry model defines playthrough metadata.
 
 Every PlayEntry has its own stable identifier.
 
@@ -764,7 +733,7 @@ Multiple PlayTimeEntries for the same PlayEntry and the same date are valid.
 
 PlayTimeEntry is optional. Existing PlayEntries do not require PlayTimeEntries.
 
-This is an explicitly approved BetterGameTracker requirement and does not originate from the legacy Go implementation.
+This is an explicitly approved BetterGameTracker requirement.
 
 ---
 
@@ -790,7 +759,7 @@ A Review does not directly belong to a Game.
 
 There is no single overall Game review in the currently agreed domain model.
 
-The initial Review fields should be based on Review data already present in the Go backend.
+Review contains an optional date, title, text, and rating.
 
 Every Review should have its own stable identifier.
 
@@ -800,7 +769,7 @@ Every Review should have its own stable identifier.
 
 A Game can have a cover image.
 
-Cover support already exists conceptually in the Go backend and must remain supported.
+Each game has zero or one cover, stored under its UUID through the cover API.
 
 The image itself does not need to be stored as a database BLOB.
 
@@ -993,7 +962,7 @@ Implement and design around:
 - PlayTimeEntry belonging to PlayEntry
 - Review belonging to PlayEntry
 - Cover support
-- Existing Go model as baseline data definition
+- Java domain model as the data definition
 
 ### Future Functionality
 
@@ -1017,11 +986,9 @@ Architecture should avoid unnecessarily blocking likely future work, but future 
 
 Do not invent new product requirements merely because they appear architecturally convenient.
 
-When implementing or changing legacy domain data, inspect the existing Go BetterGameTracker implementation first.
+When changing domain data, inspect the Java implementation and its tests.
 
-The existing Go code defines the baseline game-tracking data that must survive the rewrite.
-
-Explicitly approved new requirements may extend this model.
+Explicitly approved new requirements may extend the Java model.
 
 Refactoring names, Java types, relationships, and architecture is acceptable.
 

@@ -99,6 +99,18 @@ class ConfigurationLoadingTests {
         assertThat(databasePath.getParent()).isDirectory();
     }
 
+    @Test
+    void rejectsAmbiguousOrMissingDeploymentProfiles() {
+        var processor = new com.bettergametracker.config.LocalDatabasePathEnvironmentPostProcessor();
+        var environment = new org.springframework.mock.env.MockEnvironment();
+        environment.setActiveProfiles("local", "hosted");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> processor.postProcessEnvironment(environment, null))
+                .isInstanceOf(IllegalStateException.class);
+        environment.setActiveProfiles("other");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> processor.postProcessEnvironment(environment, null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
     private Map<String, Object> propertiesFrom(String resourceName) throws IOException {
         List<PropertySource<?>> propertySources = loader.load(resourceName, new ClassPathResource(resourceName));
         Map<String, Object> properties = new java.util.HashMap<>();

@@ -1,6 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.0'
+    id 'org.graalvm.buildtools.native' version '0.10.6' apply false
+    id 'org.springframework.boot' version '3.5.16'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -19,6 +20,8 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.hibernate.orm:hibernate-community-dialects'
@@ -27,8 +30,31 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'better-game-tracker.open-browser', 'false'
+}
+
+// Plain browser assets: no Node runtime or frontend framework required.
+tasks.named('processResources') {
+    from('frontend') { into 'static' }
+}
+
+// Native packaging is opt-in; regular JAR builds do not run AOT processing.
+if (providers.gradleProperty('native').isPresent()) {
+    apply plugin: 'org.graalvm.buildtools.native'
+    graalvmNative {
+        binaries {
+            main {
+                imageName = 'BetterGameTracker'
+                buildArgs.add('-H:+AddAllCharsets')
+            }
+        }
+    }
+    tasks.named('processAot') {
+        args '--spring.profiles.active=local', '--better-game-tracker.open-browser=false'
+    }
 }

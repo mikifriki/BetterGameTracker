@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 
 import com.bettergametracker.play.PlayTimeEntry;
+import com.bettergametracker.play.PlayTimeEntryRepository;
 import java.util.HexFormat;
 
 import com.bettergametracker.game.Game;
@@ -39,20 +40,30 @@ class BetterGameTrackerApplicationTests {
     void flywayMigratesAndHibernateValidatesTheTemporarySqliteSchema(@Autowired JdbcTemplate jdbcTemplate) {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT time_to_beat FROM play_entries WHERE id = ?", String.class,
-                bytes("12121212121212121212121212121212"))).isEqualTo("20 hours");
+                bytes("12121212121212121212121212121212"))).isNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT game_title FROM games WHERE id = ?", String.class,
-                bytes("11111111111111111111111111111111"))).isEqualTo("Preserved V1 game");
+                bytes("11111111111111111111111111111111"))).isEqualTo("V1 game");
         assertThat(jdbcTemplate.queryForObject("PRAGMA foreign_keys", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '2' AND success = 1", Integer.class))
-                .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '1' AND success = 1", Integer.class))
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('games', 'play_entries', 'reviews')",
-                Integer.class)).isEqualTo(3);
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE type = 'SQL' AND success = 1", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN "
+                        + "('application_users', 'games', 'play_entries', 'reviews', 'play_time_entries')",
+                Integer.class)).isEqualTo(5);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT type FROM pragma_table_info('games') WHERE name = 'description'", String.class))
+                .isEqualTo("VARCHAR(255)");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT \"notnull\" FROM pragma_table_info('games') WHERE name = 'game_title'", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT \"notnull\" FROM pragma_table_info('games') WHERE name = 'description'", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -208,7 +219,7 @@ class BetterGameTrackerApplicationTests {
         PlayTimeEntry first = timeEntry(30, "First session");
         PlayTimeEntry second = timeEntry(45, null);
         timedPlay.addTimeEntry(first);
-        second.setPlayEntry(timedPlay);
+        timedPlay.addTimeEntry(second);
         entityManager.persist(game);
         entityManager.flush();
         var firstId = first.getId();
@@ -263,6 +274,33 @@ class BetterGameTrackerApplicationTests {
                 .hasCauseInstanceOf(SQLException.class);
     }
 
+    @Test
+    @Transactional
+    void timeEntryRepositoryFiltersByPlayEntryAndPreservesDuplicateDates(
+            @Autowired EntityManager entityManager, @Autowired PlayTimeEntryRepository repository) {
+        Game game = game("Repository game");
+        PlayEntry firstPlay = playEntry();
+        PlayEntry otherPlay = playEntry();
+        game.addPlayEntry(firstPlay);
+        game.addPlayEntry(otherPlay);
+        entityManager.persist(game);
+
+        PlayTimeEntry first = timeEntry(30, "First session");
+        PlayTimeEntry second = timeEntry(45, null);
+        PlayTimeEntry other = timeEntry(60, "Other play");
+        firstPlay.addTimeEntry(first);
+        firstPlay.addTimeEntry(second);
+        otherPlay.addTimeEntry(other);
+        repository.saveAllAndFlush(java.util.List.of(first, second, other));
+        entityManager.clear();
+
+        assertThat(repository.findAllByPlayEntry_Id(firstPlay.getId()))
+                .extracting(PlayTimeEntry::getId).containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(repository.findAllByPlayEntry_Id(otherPlay.getId()))
+                .extracting(PlayTimeEntry::getId).containsExactly(other.getId());
+        assertThat(repository.findAllByPlayEntry_Id(java.util.UUID.randomUUID())).isEmpty();
+    }
+
     private static PlayTimeEntry timeEntry(int minutes, String notes) {
         PlayTimeEntry entry = new PlayTimeEntry();
         entry.setDate(LocalDate.of(2026, 9, 6));
@@ -274,10 +312,9 @@ class BetterGameTrackerApplicationTests {
     private static void insertGame(JdbcTemplate jdbcTemplate, String hexadecimalId, String title) {
         jdbcTemplate.update("""
                 INSERT INTO games (id, game_title, description, release_platform, release_date, developer,
-                    meta_rating, user_rating, physical_copy, cover_image)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, bytes(hexadecimalId), title, "Description", "PC", "2026-09-06", "Developer", "9", "9", "Yes",
-                "cover.png");
+                    meta_rating, user_rating, physical_copy)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, bytes(hexadecimalId), title, "Description", "PC", "2026-09-06", "Developer", "9", "9", "Yes");
     }
 
     private static byte[] bytes(String hexadecimalId) {
@@ -293,7 +330,6 @@ class BetterGameTrackerApplicationTests {
         game.setMetaRating("9");
         game.setUserRating("9");
         game.setPhysicalCopy("Yes");
-        game.setCoverImage("cover.png");
         return game;
     }
 
@@ -322,14 +358,16 @@ class BetterGameTrackerApplicationTests {
             org.flywaydb.core.Flyway.configure()
                     .dataSource(url, null, null)
                     .placeholders(java.util.Map.of("uuidType", "BLOB"))
-                    .target("1")
                     .load().migrate();
             JdbcTemplate baseline = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url));
-            insertGame(baseline, "11111111111111111111111111111111", "Preserved V1 game");
+            baseline.update("""
+                    INSERT INTO games (id, game_title)
+                    VALUES (?, 'V1 game')
+                    """, bytes("11111111111111111111111111111111"));
             baseline.update("""
                     INSERT INTO play_entries (id, playthrough_rating, completion_date, platform_played_on,
-                        time_to_beat, completion_rate, location, game_id)
-                    VALUES (?, '9', '2026-09-06', 'PC', '20 hours', '100%', 'Home', ?)
+                        completion_rate, location, game_id)
+                    VALUES (?, '9', '2026-09-06', 'PC', '100%', 'Home', ?)
                     """, bytes("12121212121212121212121212121212"), bytes("11111111111111111111111111111111"));
             return databasePath;
         } catch (java.io.IOException exception) {

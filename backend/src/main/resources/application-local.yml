@@ -6,6 +6,7 @@ spring:
     url: jdbc:sqlite:${better-game-tracker.local.database-path}
     driver-class-name: org.sqlite.JDBC
     hikari:
+      maximum-pool-size: 1
       connection-init-sql: PRAGMA foreign_keys = ON
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
@@ -15,3 +16,7 @@ spring:
 
 server:
   address: 127.0.0.1
+
+better-game-tracker:
+  open-browser: ${BETTER_GAME_TRACKER_OPEN_BROWSER:true}
+  cover-directory: ${BETTER_GAME_TRACKER_COVER_DIRECTORY:${better-game-tracker.local.database-path}.covers}

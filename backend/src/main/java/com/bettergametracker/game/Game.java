@@ -24,38 +24,24 @@ public class Game {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(columnDefinition = "TEXT")
-    private String hrefTitle;
+    private UUID ownerId;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false)
     private String gameTitle;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String releasePlatform;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String releaseDate;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String developer;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String metaRating;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String userRating;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String physicalCopy;
-
-    /**
-     * Legacy cover reference metadata. Cover storage is intentionally outside this entity.
-     */
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String coverImage;
 
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayEntry> playEntries = new ArrayList<>();
@@ -72,12 +58,8 @@ public class Game {
         return id;
     }
 
-    public String getHrefTitle() {
-        return hrefTitle;
-    }
-
-    public void setHrefTitle(String hrefTitle) {
-        this.hrefTitle = hrefTitle;
+    void assignOwner(UUID ownerId) {
+        this.ownerId = ownerId;
     }
 
     public String getGameTitle() {
@@ -93,7 +75,7 @@ public class Game {
     }
 
     public void setDescription(String description) {
-        this.description = Objects.requireNonNull(description, "description must not be null");
+        this.description = description;
     }
 
     public String getReleasePlatform() {
@@ -101,7 +83,7 @@ public class Game {
     }
 
     public void setReleasePlatform(String releasePlatform) {
-        this.releasePlatform = Objects.requireNonNull(releasePlatform, "releasePlatform must not be null");
+        this.releasePlatform = releasePlatform;
     }
 
     public String getReleaseDate() {
@@ -109,7 +91,7 @@ public class Game {
     }
 
     public void setReleaseDate(String releaseDate) {
-        this.releaseDate = Objects.requireNonNull(releaseDate, "releaseDate must not be null");
+        this.releaseDate = releaseDate;
     }
 
     public String getDeveloper() {
@@ -117,7 +99,7 @@ public class Game {
     }
 
     public void setDeveloper(String developer) {
-        this.developer = Objects.requireNonNull(developer, "developer must not be null");
+        this.developer = developer;
     }
 
     public String getMetaRating() {
@@ -125,7 +107,7 @@ public class Game {
     }
 
     public void setMetaRating(String metaRating) {
-        this.metaRating = Objects.requireNonNull(metaRating, "metaRating must not be null");
+        this.metaRating = metaRating;
     }
 
     public String getUserRating() {
@@ -133,7 +115,7 @@ public class Game {
     }
 
     public void setUserRating(String userRating) {
-        this.userRating = Objects.requireNonNull(userRating, "userRating must not be null");
+        this.userRating = userRating;
     }
 
     public String getPhysicalCopy() {
@@ -141,15 +123,7 @@ public class Game {
     }
 
     public void setPhysicalCopy(String physicalCopy) {
-        this.physicalCopy = Objects.requireNonNull(physicalCopy, "physicalCopy must not be null");
-    }
-
-    public String getCoverImage() {
-        return coverImage;
-    }
-
-    public void setCoverImage(String coverImage) {
-        this.coverImage = Objects.requireNonNull(coverImage, "coverImage must not be null");
+        this.physicalCopy = physicalCopy;
     }
 
     public List<PlayEntry> getPlayEntries() {
@@ -157,23 +131,15 @@ public class Game {
     }
 
     public void addPlayEntry(PlayEntry playEntry) {
-        PlayEntry requiredPlayEntry = Objects.requireNonNull(playEntry, "playEntry must not be null");
-        if (requiredPlayEntry.getGame() != this) {
-            requiredPlayEntry.assignGame(this);
-        }
-        if (!playEntries.contains(requiredPlayEntry)) {
-            playEntries.add(requiredPlayEntry);
+        playEntry.assignGame(this);
+        if (!playEntries.contains(playEntry)) {
+            playEntries.add(playEntry);
         }
     }
 
     public void removePlayEntry(PlayEntry playEntry) {
-        if (playEntry == null) {
-            return;
-        }
-        if (playEntry.getGame() == this) {
+        if (playEntries.remove(playEntry)) {
             playEntry.assignGame(null);
-        } else {
-            playEntries.remove(playEntry);
         }
     }
 }

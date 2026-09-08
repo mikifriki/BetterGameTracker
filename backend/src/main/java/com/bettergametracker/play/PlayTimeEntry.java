@@ -38,7 +38,6 @@ public class PlayTimeEntry {
     @Column(nullable = false)
     private int durationMinutes;
 
-    @Column(columnDefinition = "TEXT")
     private String notes;
 
     public PlayTimeEntry() {
@@ -53,33 +52,18 @@ public class PlayTimeEntry {
         return playEntry;
     }
 
-    public void setPlayEntry(PlayEntry playEntry) {
-        assignPlayEntry(Objects.requireNonNull(playEntry, "playEntry must not be null"));
-    }
-
+    /** Updates only the owning side; use the parent add/remove methods to manage the relationship. */
     public void assignPlayEntry(PlayEntry playEntry) {
         if (samePlayEntry(this.playEntry, playEntry)) {
             return;
         }
-        if (playEntry != null) {
-            PlayEntry establishedPlayEntry = initialPlayEntry != null ? initialPlayEntry : this.playEntry;
-            if (establishedPlayEntry != null && !samePlayEntry(establishedPlayEntry, playEntry)) {
-                throw new IllegalStateException("A play time entry cannot be reassigned to a different play entry");
-            }
-            if (initialPlayEntry == null) {
-                initialPlayEntry = establishedPlayEntry != null ? establishedPlayEntry : playEntry;
-            }
-        } else if (initialPlayEntry == null && this.playEntry != null) {
+        if (initialPlayEntry == null) {
             initialPlayEntry = this.playEntry;
         }
-        PlayEntry previousPlayEntry = this.playEntry;
+        if (playEntry != null && initialPlayEntry != null && !samePlayEntry(initialPlayEntry, playEntry)) {
+            throw new IllegalStateException("A play time entry cannot be reassigned to a different play entry");
+        }
         this.playEntry = playEntry;
-        if (previousPlayEntry != null) {
-            previousPlayEntry.removeTimeEntry(this);
-        }
-        if (playEntry != null) {
-            playEntry.addTimeEntry(this);
-        }
     }
 
     public LocalDate getDate() {

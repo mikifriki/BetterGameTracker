@@ -19,7 +19,12 @@ public final class LocalDatabasePathEnvironmentPostProcessor implements Environm
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        if (!environment.acceptsProfiles(Profiles.of("local"))) {
+        boolean local = environment.acceptsProfiles(Profiles.of("local"));
+        boolean hosted = environment.acceptsProfiles(Profiles.of("hosted"));
+        if (local == hosted) {
+            throw new IllegalStateException("Select exactly one deployment profile: local or hosted");
+        }
+        if (!local) {
             return;
         }
 

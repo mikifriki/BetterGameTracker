@@ -1,6 +1,5 @@
 package com.bettergametracker.review;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import com.bettergametracker.play.PlayEntry;
@@ -22,16 +21,13 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(columnDefinition = "TEXT")
     private String reviewDate;
 
-    @Column(columnDefinition = "TEXT")
     private String reviewTitle;
 
-    @Column(name = "review_text", columnDefinition = "TEXT")
+    @Column(name = "review_text")
     private String review;
 
-    @Column(columnDefinition = "TEXT")
     private String rating;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -89,33 +85,18 @@ public class Review {
         return playEntry;
     }
 
-    public void setPlayEntry(PlayEntry playEntry) {
-        assignPlayEntry(Objects.requireNonNull(playEntry, "playEntry must not be null"));
-    }
-
+    /** Updates only the owning side; use the parent add/remove methods to manage the relationship. */
     public void assignPlayEntry(PlayEntry playEntry) {
         if (samePlayEntry(this.playEntry, playEntry)) {
             return;
         }
-        if (playEntry != null) {
-            PlayEntry establishedPlayEntry = initialPlayEntry != null ? initialPlayEntry : this.playEntry;
-            if (establishedPlayEntry != null && !samePlayEntry(establishedPlayEntry, playEntry)) {
-                throw new IllegalStateException("A review cannot be reassigned to a different play entry");
-            }
-            if (initialPlayEntry == null) {
-                initialPlayEntry = establishedPlayEntry != null ? establishedPlayEntry : playEntry;
-            }
-        } else if (initialPlayEntry == null && this.playEntry != null) {
+        if (initialPlayEntry == null) {
             initialPlayEntry = this.playEntry;
         }
-        PlayEntry previousPlayEntry = this.playEntry;
+        if (playEntry != null && initialPlayEntry != null && !samePlayEntry(initialPlayEntry, playEntry)) {
+            throw new IllegalStateException("A review cannot be reassigned to a different play entry");
+        }
         this.playEntry = playEntry;
-        if (previousPlayEntry != null) {
-            previousPlayEntry.removeReview(this);
-        }
-        if (playEntry != null) {
-            playEntry.addReview(this);
-        }
     }
 
     private static boolean samePlayEntry(PlayEntry first, PlayEntry second) {

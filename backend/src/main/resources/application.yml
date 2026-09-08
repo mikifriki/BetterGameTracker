@@ -5,6 +5,14 @@ spring:
     default: local
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+      fail-on-null-for-primitives: true
   sql:
     init:
       mode: never
