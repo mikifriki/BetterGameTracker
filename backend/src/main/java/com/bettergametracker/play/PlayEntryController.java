@@ -40,7 +40,7 @@ public class PlayEntryController {
 
     @GetMapping("/{playId}")
     public PlayEntryResponse get(@PathVariable UUID gameId, @PathVariable UUID playId) {
-        return toResponse(playEntryService.get(gameId, playId));
+        return toResponse(playEntryService.getWithTime(gameId, playId));
     }
 
     @PutMapping("/{playId}")
@@ -60,23 +60,25 @@ public class PlayEntryController {
         playEntry.setPlaythroughRating(request.playthroughRating());
         playEntry.setCompletionDate(request.completionDate());
         playEntry.setPlatformPlayedOn(request.platformPlayedOn());
-        playEntry.setTimeToBeat(request.timeToBeat());
-        playEntry.setCompletionRate(request.completionRate());
+        playEntry.setTimeToBeatMinutes(request.timeToBeatMinutes());
+        playEntry.setCompletionStatus(request.completionStatus());
         playEntry.setCoop(request.coop());
         playEntry.setLocation(request.location());
         return playEntry;
     }
 
-    private static PlayEntryResponse toResponse(PlayEntry playEntry) {
+    private static PlayEntryResponse toResponse(PlayEntrySummary summary) {
+        PlayEntry playEntry = summary.playEntry();
         return new PlayEntryResponse(
                 playEntry.getId(),
                 playEntry.getGame().getId(),
                 playEntry.getPlaythroughRating(),
                 playEntry.getCompletionDate(),
                 playEntry.getPlatformPlayedOn(),
-                playEntry.getTimeToBeat(),
-                playEntry.getCompletionRate(),
+                playEntry.getTimeToBeatMinutes(),
+                playEntry.getCompletionStatus(),
                 playEntry.getCoop(),
-                playEntry.getLocation());
+                playEntry.getLocation(),
+                summary.calculatedTimeMinutes());
     }
 }

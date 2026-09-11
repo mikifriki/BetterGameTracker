@@ -38,9 +38,40 @@ tasks.named('test') {
     systemProperty 'better-game-tracker.open-browser', 'false'
 }
 
-// Plain browser assets: no Node runtime or frontend framework required.
+def frontendDirectory = file('../frontend')
+
+tasks.register('installFrontend', Exec) {
+    workingDir frontendDirectory
+    commandLine 'npm', 'ci'
+    inputs.files('../frontend/package.json', '../frontend/package-lock.json')
+    outputs.dir('../frontend/node_modules')
+}
+
+tasks.register('buildFrontend', Exec) {
+    dependsOn 'installFrontend'
+    workingDir frontendDirectory
+    commandLine 'npm', 'run', 'build'
+    inputs.files(fileTree('../frontend/src'), '../frontend/angular.json', '../frontend/tsconfig.json',
+            '../frontend/tsconfig.app.json')
+    outputs.dir('../frontend/dist/better-game-tracker/browser')
+}
+
+tasks.register('testFrontend', Exec) {
+    dependsOn 'installFrontend'
+    mustRunAfter 'buildFrontend'
+    workingDir frontendDirectory
+    commandLine 'npm', 'test'
+    inputs.files(fileTree('../frontend/src'), '../frontend/angular.json', '../frontend/tsconfig.json',
+            '../frontend/tsconfig.spec.json')
+}
+
+tasks.named('check') {
+    dependsOn 'testFrontend'
+}
+
 tasks.named('processResources') {
-    from('frontend') { into 'static' }
+    dependsOn 'buildFrontend'
+    from('../frontend/dist/better-game-tracker/browser') { into 'static' }
 }
 
 // Native packaging is opt-in; regular JAR builds do not run AOT processing.

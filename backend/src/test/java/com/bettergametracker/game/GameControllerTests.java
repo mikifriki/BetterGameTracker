@@ -178,19 +178,19 @@ class GameControllerTests {
         ReflectionTestUtils.setField(game, "id", id);
         game.setDescription("Description");
         game.setReleasePlatform("PC");
-        game.setReleaseDate("2026-09-07");
+        game.setReleaseDate(java.time.LocalDate.parse("2026-09-07"));
         game.setDeveloper("Developer");
-        game.setMetaRating("90");
-        game.setUserRating("9.0");
-        game.setPhysicalCopy("Yes");
+        game.setMetaRating(new java.math.BigDecimal("9"));
+        game.setUserRating(new java.math.BigDecimal("9.0"));
+        game.setPhysicalCopy(true);
         return game;
     }
 
     private static String validRequest(String title) {
         return """
                 {"gameTitle":"%s","description":"Description","releasePlatform":"PC",
-                 "releaseDate":"2026-09-07","developer":"Developer","metaRating":"90",
-                 "userRating":"9.0","physicalCopy":"Yes"}
+                 "releaseDate":"2026-09-07","developer":"Developer","metaRating":9,
+                 "userRating":9.0,"physicalCopy":true}
                 """.formatted(title);
     }
 }

@@ -1,0 +1,31 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<div class="site-shell">
+  <bgt-brand-header />
+
+  @if (loading()) {
+    <main id="main-content" class="standalone-state" aria-busy="true">
+      <p class="eyebrow">Loading</p>
+      <h1>Opening your library…</h1>
+    </main>
+  } @else if (api.session()?.hosted && !api.session()?.authenticated) {
+    <main id="main-content" class="login-panel">
+      <p class="eyebrow">Personal game tracking</p>
+      <h1>Your next great playthrough starts here.</h1>
+      <p>Sign in to open your personal game library, playthroughs, reviews, and logged time.</p>
+      <a class="button primary" href="/oauth2/authorization/google">Continue with Google</a>
+    </main>
+  } @else {
+    <div class="page-body">
+      <bgt-library-navigation />
+      <main id="main-content" tabindex="-1">
+        @if (error()) {
+          <div class="notice error" role="alert">{{ error() }}</div>
+        }
+        <router-outlet />
+      </main>
+    </div>
+    <bgt-collection-stats-bar />
+  }
+
+  <bgt-site-footer />
+</div>

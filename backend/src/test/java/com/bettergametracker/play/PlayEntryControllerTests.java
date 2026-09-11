@@ -38,12 +38,12 @@ class PlayEntryControllerTests {
     private static final String BASE_PATH = "/api/v1/games/" + GAME_ID + "/plays";
     private static final String REQUEST = """
             {
-              "playthroughRating": "9",
+              "playthroughRating": 9,
               "completionDate": "2026-09-07",
               "platformPlayedOn": "PC",
-              "timeToBeat": "20 hours",
-              "completionRate": "100%",
-              "coop": "Yes",
+              "timeToBeatMinutes": 1200,
+              "completionStatus": "COMPLETE",
+              "coop": true,
               "location": "Home"
             }
             """;
@@ -56,8 +56,8 @@ class PlayEntryControllerTests {
 
     @Test
     void listsAndGetsDtosWithoutNestedRelationships() throws Exception {
-        when(playEntryService.list(GAME_ID)).thenReturn(List.of(playEntry()));
-        when(playEntryService.get(GAME_ID, PLAY_ID)).thenReturn(playEntry());
+        when(playEntryService.list(GAME_ID)).thenReturn(List.of(new PlayEntrySummary(playEntry(), 0)));
+        when(playEntryService.getWithTime(GAME_ID, PLAY_ID)).thenReturn(new PlayEntrySummary(playEntry(), 0));
 
         mockMvc.perform(get(BASE_PATH))
                 .andExpect(status().isOk())
@@ -67,12 +67,12 @@ class PlayEntryControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(PLAY_ID.toString()))
                 .andExpect(jsonPath("$.gameId").value(GAME_ID.toString()))
-                .andExpect(jsonPath("$.playthroughRating").value("9"))
+                .andExpect(jsonPath("$.playthroughRating").value(9))
                 .andExpect(jsonPath("$.completionDate").value("2026-09-07"))
                 .andExpect(jsonPath("$.platformPlayedOn").value("PC"))
-                .andExpect(jsonPath("$.timeToBeat").value("20 hours"))
-                .andExpect(jsonPath("$.completionRate").value("100%"))
-                .andExpect(jsonPath("$.coop").value("Yes"))
+                .andExpect(jsonPath("$.timeToBeatMinutes").value(1200))
+                .andExpect(jsonPath("$.completionStatus").value("COMPLETE"))
+                .andExpect(jsonPath("$.coop").value(true))
                 .andExpect(jsonPath("$.location").value("Home"))
                 .andExpect(jsonPath("$.game").doesNotExist())
                 .andExpect(jsonPath("$.reviews").doesNotExist())
@@ -90,11 +90,11 @@ class PlayEntryControllerTests {
     void mapsAllRequestFieldsAndUsesPathOwnership(String method) throws Exception {
         when(playEntryService.create(eq(GAME_ID), any(PlayEntry.class))).thenAnswer(invocation -> {
             assertRequest(invocation.getArgument(1));
-            return playEntry();
+            return new PlayEntrySummary(playEntry(), 0);
         });
         when(playEntryService.update(eq(GAME_ID), eq(PLAY_ID), any(PlayEntry.class))).thenAnswer(invocation -> {
             assertRequest(invocation.getArgument(2));
-            return playEntry();
+            return new PlayEntrySummary(playEntry(), 0);
         });
 
         var result = mockMvc.perform(request(HttpMethod.valueOf(method),
@@ -111,27 +111,6 @@ class PlayEntryControllerTests {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"missing", "null", "blank"})
-    void acceptsOptionalFields(String variant) throws Exception {
-        when(playEntryService.create(eq(GAME_ID), any(PlayEntry.class))).thenAnswer(invocation -> {
-            PlayEntry entry = invocation.getArgument(1);
-            Game game = new Game("Game");
-            ReflectionTestUtils.setField(game, "id", GAME_ID);
-            game.addPlayEntry(entry);
-            ReflectionTestUtils.setField(entry, "id", PLAY_ID);
-            return entry;
-        });
-        String body = switch (variant) {
-            case "missing" -> REQUEST.replace("\"coop\": \"Yes\",", "");
-            case "null" -> REQUEST.replace("\"Yes\"", "null");
-            default -> REQUEST.replace("\"Yes\"", "\"   \"");
-        };
-        mockMvc.perform(post(BASE_PATH).contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.coop").value(variant.equals("blank") ? equalTo("   ") : nullValue()));
-    }
-
     @Test
     void deletesWithoutAResponseBody() throws Exception {
         mockMvc.perform(delete(BASE_PATH + "/" + PLAY_ID))
@@ -143,7 +122,7 @@ class PlayEntryControllerTests {
     @ValueSource(strings = {"GET", "PUT", "DELETE"})
     void reportsMissingOrWrongOwnerPlaysAsNotFound(String method) throws Exception {
         PlayEntryNotFoundException exception = new PlayEntryNotFoundException(GAME_ID, PLAY_ID);
-        when(playEntryService.get(GAME_ID, PLAY_ID)).thenThrow(exception);
+        when(playEntryService.getWithTime(GAME_ID, PLAY_ID)).thenThrow(exception);
         when(playEntryService.update(eq(GAME_ID), eq(PLAY_ID), any(PlayEntry.class))).thenThrow(exception);
         doThrow(exception).when(playEntryService).delete(GAME_ID, PLAY_ID);
 
@@ -164,20 +143,6 @@ class PlayEntryControllerTests {
                         .contentType(MediaType.APPLICATION_JSON).content(REQUEST))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"POST", "PUT"})
-    void rejectsMissingNullAndBlankRequiredFields(String method) throws Exception {
-        for (String body : List.of("{}", REQUEST.replace("\"9\"", "null"), REQUEST.replace("\"9\"", "\"   \""))) {
-            mockMvc.perform(request(HttpMethod.valueOf(method),
-                            method.equals("POST") ? BASE_PATH : BASE_PATH + "/" + PLAY_ID)
-                            .contentType(MediaType.APPLICATION_JSON).content(body))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                    .andExpect(jsonPath("$.errors.playthroughRating").exists());
-        }
-        verifyNoInteractions(playEntryService);
     }
 
     @Test
@@ -204,12 +169,12 @@ class PlayEntryControllerTests {
         ReflectionTestUtils.setField(game, "id", GAME_ID);
         PlayEntry entry = new PlayEntry();
         ReflectionTestUtils.setField(entry, "id", PLAY_ID);
-        entry.setPlaythroughRating("9");
-        entry.setCompletionDate("2026-09-07");
+        entry.setPlaythroughRating(new java.math.BigDecimal("9"));
+        entry.setCompletionDate(java.time.LocalDate.parse("2026-09-07"));
         entry.setPlatformPlayedOn("PC");
-        entry.setTimeToBeat("20 hours");
-        entry.setCompletionRate("100%");
-        entry.setCoop("Yes");
+        entry.setTimeToBeatMinutes(1200);
+        entry.setCompletionStatus(com.bettergametracker.play.CompletionStatus.COMPLETE);
+        entry.setCoop(true);
         entry.setLocation("Home");
         game.addPlayEntry(entry);
         return entry;

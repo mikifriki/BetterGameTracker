@@ -1,5 +1,7 @@
 package com.bettergametracker.review;
 
+import jakarta.validation.Valid;
+
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -31,7 +33,7 @@ public class ReviewController {
 
     @PostMapping
     public ResponseEntity<ReviewResponse> create(@PathVariable UUID gameId, @PathVariable UUID playId,
-            @RequestBody ReviewRequest request) {
+            @Valid @RequestBody ReviewRequest request) {
         ReviewResponse response = toResponse(reviewService.create(gameId, playId, toReview(request)));
         return ResponseEntity.created(URI.create("/api/v1/games/" + gameId + "/plays/" + playId
                 + "/reviews/" + response.id())).body(response);
@@ -45,7 +47,7 @@ public class ReviewController {
 
     @PutMapping("/{reviewId}")
     public ReviewResponse update(@PathVariable UUID gameId, @PathVariable UUID playId,
-            @PathVariable UUID reviewId, @RequestBody ReviewRequest request) {
+            @PathVariable UUID reviewId, @Valid @RequestBody ReviewRequest request) {
         return toResponse(reviewService.update(gameId, playId, reviewId, toReview(request)));
     }
 

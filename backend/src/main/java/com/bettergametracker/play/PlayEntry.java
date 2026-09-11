@@ -1,9 +1,10 @@
 package com.bettergametracker.play;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 import com.bettergametracker.game.Game;
@@ -11,6 +12,8 @@ import com.bettergametracker.review.Review;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,23 +31,20 @@ public class PlayEntry {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private String playthroughRating;
+    @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
+    private BigDecimal playthroughRating;
 
-    @Column(nullable = false)
-    private String completionDate;
+    private LocalDate completionDate;
 
-    @Column(nullable = false)
     private String platformPlayedOn;
 
-    private String timeToBeat;
+    private Integer timeToBeatMinutes;
 
-    @Column(nullable = false)
-    private String completionRate;
+    @Enumerated(EnumType.STRING)
+    private CompletionStatus completionStatus;
 
-    private String coop;
+    private Boolean coop;
 
-    @Column(nullable = false)
     private String location;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -65,27 +65,26 @@ public class PlayEntry {
     private List<PlayTimeEntry> timeEntries = new ArrayList<>();
 
     public PlayEntry() {
-        // Required by JPA.
     }
 
     public UUID getId() {
         return id;
     }
 
-    public String getPlaythroughRating() {
+    public BigDecimal getPlaythroughRating() {
         return playthroughRating;
     }
 
-    public void setPlaythroughRating(String playthroughRating) {
-        this.playthroughRating = Objects.requireNonNull(playthroughRating, "playthroughRating must not be null");
+    public void setPlaythroughRating(BigDecimal playthroughRating) {
+        this.playthroughRating = playthroughRating;
     }
 
-    public String getCompletionDate() {
+    public LocalDate getCompletionDate() {
         return completionDate;
     }
 
-    public void setCompletionDate(String completionDate) {
-        this.completionDate = Objects.requireNonNull(completionDate, "completionDate must not be null");
+    public void setCompletionDate(LocalDate completionDate) {
+        this.completionDate = completionDate;
     }
 
     public String getPlatformPlayedOn() {
@@ -93,30 +92,30 @@ public class PlayEntry {
     }
 
     public void setPlatformPlayedOn(String platformPlayedOn) {
-        this.platformPlayedOn = Objects.requireNonNull(platformPlayedOn, "platformPlayedOn must not be null");
+        this.platformPlayedOn = platformPlayedOn;
     }
 
-    public String getTimeToBeat() {
-        return timeToBeat;
+    public Integer getTimeToBeatMinutes() {
+        return timeToBeatMinutes;
     }
 
-    public void setTimeToBeat(String timeToBeat) {
-        this.timeToBeat = timeToBeat;
+    public void setTimeToBeatMinutes(Integer timeToBeatMinutes) {
+        this.timeToBeatMinutes = timeToBeatMinutes;
     }
 
-    public String getCompletionRate() {
-        return completionRate;
+    public CompletionStatus getCompletionStatus() {
+        return completionStatus;
     }
 
-    public void setCompletionRate(String completionRate) {
-        this.completionRate = Objects.requireNonNull(completionRate, "completionRate must not be null");
+    public void setCompletionStatus(CompletionStatus completionStatus) {
+        this.completionStatus = completionStatus;
     }
 
-    public String getCoop() {
+    public Boolean getCoop() {
         return coop;
     }
 
-    public void setCoop(String coop) {
+    public void setCoop(Boolean coop) {
         this.coop = coop;
     }
 
@@ -125,7 +124,7 @@ public class PlayEntry {
     }
 
     public void setLocation(String location) {
-        this.location = Objects.requireNonNull(location, "location must not be null");
+        this.location = location;
     }
 
     public Game getGame() {

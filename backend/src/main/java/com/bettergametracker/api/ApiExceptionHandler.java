@@ -3,6 +3,9 @@ package com.bettergametracker.api;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.bettergametracker.cover.CoverNotFoundException;
+import com.bettergametracker.cover.CoverTooLargeException;
+import com.bettergametracker.cover.UnsupportedCoverException;
 import com.bettergametracker.game.GameNotFoundException;
 import com.bettergametracker.play.PlayEntryNotFoundException;
 import com.bettergametracker.play.PlayTimeEntryNotFoundException;
@@ -25,9 +28,19 @@ public class ApiExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler({GameNotFoundException.class, PlayEntryNotFoundException.class, ReviewNotFoundException.class,
-            PlayTimeEntryNotFoundException.class})
+            PlayTimeEntryNotFoundException.class, CoverNotFoundException.class})
     ProblemDetail handleNotFound(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(CoverTooLargeException.class)
+    ProblemDetail handleCoverTooLarge(CoverTooLargeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, exception.getMessage());
+    }
+
+    @ExceptionHandler(UnsupportedCoverException.class)
+    ProblemDetail handleUnsupportedCover(UnsupportedCoverException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

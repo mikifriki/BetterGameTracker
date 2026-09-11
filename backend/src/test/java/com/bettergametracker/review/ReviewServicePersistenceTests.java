@@ -50,16 +50,16 @@ class ReviewServicePersistenceTests {
     @Test
     void persistsAllFieldsAndUpdatesWithoutChangingOwnership() {
         Game game = gameService.create(game("Game"));
-        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play"));
+        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play")).playEntry();
         UUID id = reviewService.create(game.getId(), play.getId(), review("Original")).getId();
         entityManager.flush();
         entityManager.clear();
 
         Review loaded = reviewService.get(game.getId(), play.getId(), id);
-        assertThat(loaded.getReviewDate()).isEqualTo("Original date");
+        assertThat(loaded.getReviewDate()).isEqualTo(java.time.LocalDate.parse("2026-09-07"));
         assertThat(loaded.getReviewTitle()).isEqualTo("Original title");
         assertThat(loaded.getReview()).isEqualTo("Original text");
-        assertThat(loaded.getRating()).isEqualTo("Original rating");
+        assertThat(loaded.getRating()).isEqualByComparingTo("6");
         assertThat(loaded.getPlayEntry().getId()).isEqualTo(play.getId());
 
         Review replacement = review("Updated");
@@ -68,10 +68,10 @@ class ReviewServicePersistenceTests {
         entityManager.flush();
         entityManager.clear();
         loaded = reviewService.get(game.getId(), play.getId(), id);
-        assertThat(loaded.getReviewDate()).isEqualTo("Updated date");
+        assertThat(loaded.getReviewDate()).isEqualTo(java.time.LocalDate.parse("2026-09-08"));
         assertThat(loaded.getReviewTitle()).isEqualTo("Updated title");
         assertThat(loaded.getReview()).isEqualTo("Updated text");
-        assertThat(loaded.getRating()).isEqualTo("Updated rating");
+        assertThat(loaded.getRating()).isEqualByComparingTo("8");
         assertThat(loaded.getPlayEntry().getId()).isEqualTo(play.getId());
 
         reviewService.update(game.getId(), play.getId(), id, new Review());
@@ -87,8 +87,8 @@ class ReviewServicePersistenceTests {
     @Test
     void listsAndDeletesOnlyReviewsOfTheRequestedPlayEntry() {
         Game game = gameService.create(game("Game"));
-        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play"));
-        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other"));
+        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play")).playEntry();
+        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other")).playEntry();
         assertThat(reviewService.list(game.getId(), play.getId())).isEmpty();
         Review first = reviewService.create(game.getId(), play.getId(), review("First"));
         Review second = reviewService.create(game.getId(), play.getId(), review("Second"));
@@ -115,7 +115,7 @@ class ReviewServicePersistenceTests {
     void rejectsWrongOrMissingParentsForEveryOperation() {
         Game game = gameService.create(game("Game"));
         Game other = gameService.create(game("Other"));
-        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play"));
+        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play")).playEntry();
         UUID id = reviewService.create(game.getId(), play.getId(), review("Original")).getId();
         entityManager.flush();
         entityManager.clear();
@@ -131,8 +131,8 @@ class ReviewServicePersistenceTests {
     @Test
     void rejectsWrongPlayEntryAndMissingReviewsForGetUpdateAndDelete() {
         Game game = gameService.create(game("Game"));
-        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play"));
-        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other"));
+        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play")).playEntry();
+        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other")).playEntry();
         UUID id = reviewService.create(game.getId(), play.getId(), review("Original")).getId();
         entityManager.flush();
         entityManager.clear();
@@ -147,8 +147,8 @@ class ReviewServicePersistenceTests {
     @Test
     void rejectsCreatingAReviewAlreadyOwnedByAnotherPlayEntry() {
         Game game = gameService.create(game("Game"));
-        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play"));
-        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other"));
+        PlayEntry play = playEntryService.create(game.getId(), playEntry("Play")).playEntry();
+        PlayEntry other = playEntryService.create(game.getId(), playEntry("Other")).playEntry();
         Review review = reviewService.create(game.getId(), play.getId(), review("Original"));
         entityManager.flush();
         entityManager.clear();
@@ -181,10 +181,10 @@ class ReviewServicePersistenceTests {
 
     private static Review review(String prefix) {
         Review review = new Review();
-        review.setReviewDate(prefix + " date");
+        review.setReviewDate(java.time.LocalDate.parse(prefix.equals("Original") ? "2026-09-07" : "2026-09-08"));
         review.setReviewTitle(prefix + " title");
         review.setReview(prefix + " text");
-        review.setRating(prefix + " rating");
+        review.setRating(new java.math.BigDecimal(prefix.equals("Original") ? "6" : "8"));
         return review;
     }
 
@@ -192,22 +192,22 @@ class ReviewServicePersistenceTests {
         Game game = new Game(title);
         game.setDescription("Description");
         game.setReleasePlatform("PC");
-        game.setReleaseDate("2026-09-07");
+        game.setReleaseDate(java.time.LocalDate.parse("2026-09-07"));
         game.setDeveloper("Developer");
-        game.setMetaRating("90");
-        game.setUserRating("9.0");
-        game.setPhysicalCopy("Yes");
+        game.setMetaRating(new java.math.BigDecimal("9"));
+        game.setUserRating(new java.math.BigDecimal("9.0"));
+        game.setPhysicalCopy(true);
         return game;
     }
 
     private static PlayEntry playEntry(String prefix) {
         PlayEntry playEntry = new PlayEntry();
-        playEntry.setPlaythroughRating(prefix + " rating");
-        playEntry.setCompletionDate(prefix + " date");
+        playEntry.setPlaythroughRating(new java.math.BigDecimal(prefix.equals("Original") ? "6" : "8"));
+        playEntry.setCompletionDate(java.time.LocalDate.parse(prefix.equals("Original") ? "2026-09-07" : "2026-09-08"));
         playEntry.setPlatformPlayedOn(prefix + " platform");
-        playEntry.setTimeToBeat(prefix + " time");
-        playEntry.setCompletionRate(prefix + " completion");
-        playEntry.setCoop(prefix + " coop");
+        playEntry.setTimeToBeatMinutes(prefix.equals("Original") ? 120 : 180);
+        playEntry.setCompletionStatus(com.bettergametracker.play.CompletionStatus.COMPLETE);
+        playEntry.setCoop(true);
         playEntry.setLocation(prefix + " location");
         return playEntry;
     }

@@ -35,7 +35,7 @@ class ReviewControllerTests {
     private static final UUID REVIEW_ID = UUID.randomUUID();
     private static final String BASE_PATH = "/api/v1/games/" + GAME_ID + "/plays/" + PLAY_ID + "/reviews";
     private static final String REQUEST = """
-            {"reviewDate":"2026-09-08","reviewTitle":"Great game","review":"Enjoyed it","rating":"9/10"}
+            {"reviewDate":"2026-09-08","reviewTitle":"Great game","review":"Enjoyed it","rating":9}
             """;
 
     @Autowired
@@ -54,7 +54,7 @@ class ReviewControllerTests {
         mockMvc.perform(get(BASE_PATH + "/" + REVIEW_ID)).andExpect(status().isOk())
                 .andExpect(content().json("""
                         {"id":"%s","playId":"%s","reviewDate":"2026-09-08",
-                         "reviewTitle":"Great game","review":"Enjoyed it","rating":"9/10"}
+                         "reviewTitle":"Great game","review":"Enjoyed it","rating":9}
                         """.formatted(REVIEW_ID, PLAY_ID), JsonCompareMode.STRICT));
     }
 
@@ -102,7 +102,7 @@ class ReviewControllerTests {
         for (String body : List.of("{}", """
                 {"reviewDate":null,"reviewTitle":null,"review":null,"rating":null}
                 """, """
-                {"reviewDate":" ","reviewTitle":" ","review":" ","rating":" "}
+                {"reviewDate":null,"reviewTitle":" ","review":" ","rating":null}
                 """)) {
             String value = body.contains(":\" \"") ? "\" \"" : "null";
             mockMvc.perform(request(HttpMethod.valueOf(method),
@@ -111,7 +111,7 @@ class ReviewControllerTests {
                     .andExpect(status().is(method.equals("POST") ? 201 : 200))
                     .andExpect(content().json("""
                             {"id":"%s","playId":"%s","reviewDate":%s,"reviewTitle":%s,"review":%s,"rating":%s}
-                            """.formatted(REVIEW_ID, PLAY_ID, value, value, value, value), JsonCompareMode.STRICT));
+                            """.formatted(REVIEW_ID, PLAY_ID, "null", value, value, "null"), JsonCompareMode.STRICT));
         }
     }
 
@@ -173,18 +173,18 @@ class ReviewControllerTests {
     private static void assertRequest(Review review) {
         assertThat(review.getId()).isNull();
         assertThat(review.getPlayEntry()).isNull();
-        assertThat(review.getReviewDate()).isEqualTo("2026-09-08");
+        assertThat(review.getReviewDate()).isEqualTo(java.time.LocalDate.parse("2026-09-08"));
         assertThat(review.getReviewTitle()).isEqualTo("Great game");
         assertThat(review.getReview()).isEqualTo("Enjoyed it");
-        assertThat(review.getRating()).isEqualTo("9/10");
+        assertThat(review.getRating()).isEqualByComparingTo("9");
     }
 
     private static Review review() {
         Review review = new Review();
-        review.setReviewDate("2026-09-08");
+        review.setReviewDate(java.time.LocalDate.parse("2026-09-08"));
         review.setReviewTitle("Great game");
         review.setReview("Enjoyed it");
-        review.setRating("9/10");
+        review.setRating(new java.math.BigDecimal("9"));
         return attach(review);
     }
 

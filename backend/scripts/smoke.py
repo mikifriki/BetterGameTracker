@@ -43,19 +43,23 @@ with tempfile.TemporaryDirectory(prefix="bgt-smoke-") as directory:
             assert request("/api/v1/session")["hosted"] is False
             game = request("/api/v1/games", "POST", {
                 "gameTitle": "Smoke test", "description": "Test", "releasePlatform": "PC",
-                "releaseDate": "2026", "developer": "Studio", "metaRating": "90",
-                "userRating": "9", "physicalCopy": "No",
+                "releaseDate": "2026-01-01", "developer": "Studio", "metaRating": 9,
+                "userRating": 9, "physicalCopy": False,
             })
             game_path = "/api/v1/games/" + game["id"]
             play = request(game_path + "/plays", "POST", {
-                "playthroughRating": "9", "completionDate": "2026", "platformPlayedOn": "PC",
-                "timeToBeat": "30", "completionRate": "100%", "location": "Home",
+                "playthroughRating": 9, "completionDate": "2026-01-01", "platformPlayedOn": "PC",
+                "timeToBeatMinutes": 30, "completionStatus": "COMPLETE", "location": "Home",
             })
             time_path = game_path + "/plays/" + play["id"] + "/time-entries"
             entry = request(time_path, "POST", {"date": "2026-09-08", "durationMinutes": 30})
             assert request(time_path)[0]["id"] == entry["id"]
             request(time_path + "/" + entry["id"], "PUT", {"date": "2026-09-09", "durationMinutes": 60})
             assert request(time_path)[0]["durationMinutes"] == 60
+            play_path = game_path + "/plays/" + play["id"]
+            assert request(play_path)["timeToBeatMinutes"] == 30
+            assert request(play_path)["calculatedTimeMinutes"] == 60
+            assert request(game_path + "/plays")[0]["calculatedTimeMinutes"] == 60
             review_path = game_path + "/plays/" + play["id"] + "/reviews"
             request(review_path, "POST", {"reviewTitle": "Smoke review"})
             assert request(review_path)[0]["reviewTitle"] == "Smoke review"

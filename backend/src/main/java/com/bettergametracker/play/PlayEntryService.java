@@ -14,22 +14,25 @@ public class PlayEntryService {
 
     private final PlayEntryRepository playEntryRepository;
     private final GameService gameService;
+    private final PlayTimeEntryRepository timeEntryRepository;
 
-    public PlayEntryService(PlayEntryRepository playEntryRepository, GameService gameService) {
+    public PlayEntryService(PlayEntryRepository playEntryRepository, GameService gameService,
+            PlayTimeEntryRepository timeEntryRepository) {
         this.playEntryRepository = playEntryRepository;
         this.gameService = gameService;
+        this.timeEntryRepository = timeEntryRepository;
     }
 
     @Transactional
-    public PlayEntry create(UUID gameId, PlayEntry playEntry) {
+    public PlayEntrySummary create(UUID gameId, PlayEntry playEntry) {
         Game game = gameService.get(gameId);
         game.addPlayEntry(playEntry);
-        return playEntryRepository.save(playEntry);
+        return new PlayEntrySummary(playEntryRepository.save(playEntry), 0);
     }
 
-    public List<PlayEntry> list(UUID gameId) {
+    public List<PlayEntrySummary> list(UUID gameId) {
         gameService.get(gameId);
-        return playEntryRepository.findAllByGame_Id(gameId);
+        return playEntryRepository.findSummariesByGameId(gameId);
     }
 
     public PlayEntry get(UUID gameId, UUID playEntryId) {
@@ -38,17 +41,21 @@ public class PlayEntryService {
                 .orElseThrow(() -> new PlayEntryNotFoundException(gameId, playEntryId));
     }
 
+    public PlayEntrySummary getWithTime(UUID gameId, UUID playEntryId) {
+        return new PlayEntrySummary(get(gameId, playEntryId), timeEntryRepository.sumDurationByPlayEntryId(playEntryId));
+    }
+
     @Transactional
-    public PlayEntry update(UUID gameId, UUID playEntryId, PlayEntry replacement) {
+    public PlayEntrySummary update(UUID gameId, UUID playEntryId, PlayEntry replacement) {
         PlayEntry playEntry = get(gameId, playEntryId);
         playEntry.setPlaythroughRating(replacement.getPlaythroughRating());
         playEntry.setCompletionDate(replacement.getCompletionDate());
         playEntry.setPlatformPlayedOn(replacement.getPlatformPlayedOn());
-        playEntry.setTimeToBeat(replacement.getTimeToBeat());
-        playEntry.setCompletionRate(replacement.getCompletionRate());
+        playEntry.setTimeToBeatMinutes(replacement.getTimeToBeatMinutes());
+        playEntry.setCompletionStatus(replacement.getCompletionStatus());
         playEntry.setCoop(replacement.getCoop());
         playEntry.setLocation(replacement.getLocation());
-        return playEntry;
+        return new PlayEntrySummary(playEntry, timeEntryRepository.sumDurationByPlayEntryId(playEntryId));
     }
 
     @Transactional

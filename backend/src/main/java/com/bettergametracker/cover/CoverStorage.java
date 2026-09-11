@@ -5,8 +5,6 @@ import java.nio.file.*;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @Component
 public class CoverStorage {
@@ -21,13 +19,16 @@ public class CoverStorage {
         try {
             return Files.readAllBytes(directory.resolve(gameId + ".image"));
         } catch (NoSuchFileException exception) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cover not found");
+            throw new CoverNotFoundException();
         }
     }
 
     public void write(UUID gameId, byte[] bytes) throws IOException {
+        if (bytes == null) {
+            throw new UnsupportedCoverException();
+        }
         if (bytes.length > 5 * 1024 * 1024) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Cover must be at most 5 MB");
+            throw new CoverTooLargeException();
         }
         contentType(bytes);
         Path temporary = Files.createTempFile(directory, ".upload-", ".tmp");
@@ -45,6 +46,9 @@ public class CoverStorage {
     }
 
     public static String contentType(byte[] bytes) {
+        if (bytes == null) {
+            throw new UnsupportedCoverException();
+        }
         if (bytes.length >= 8 && bytes[0] == (byte) 0x89 && bytes[1] == 'P' && bytes[2] == 'N'
                 && bytes[3] == 'G' && bytes[4] == 13 && bytes[5] == 10 && bytes[6] == 26 && bytes[7] == 10) {
             return "image/png";
@@ -52,6 +56,6 @@ public class CoverStorage {
         if (bytes.length >= 3 && bytes[0] == (byte) 0xff && bytes[1] == (byte) 0xd8 && bytes[2] == (byte) 0xff) {
             return "image/jpeg";
         }
-        throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Upload a PNG or JPEG image");
+        throw new UnsupportedCoverException();
     }
 }

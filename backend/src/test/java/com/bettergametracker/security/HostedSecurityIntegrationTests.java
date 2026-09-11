@@ -35,7 +35,7 @@ class HostedSecurityIntegrationTests {
     private static final Path DIRECTORY = temporaryDirectory();
     private static final String GAME = """
             {"gameTitle":"Private game","description":"A game","releasePlatform":"PC",
-             "releaseDate":"2026","developer":"Studio","metaRating":"90","userRating":"9","physicalCopy":"No"}
+             "releaseDate":"2026-01-01","developer":"Studio","metaRating":9,"userRating":9,"physicalCopy":false}
             """;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
@@ -60,13 +60,34 @@ class HostedSecurityIntegrationTests {
 
     @Test
     void requiresLoginAndCsrfAndExposesOnlySessionMetadata() throws Exception {
-        mvc.perform(get("/api/v1/games")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/games")).andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Sign in required"))
+                .andExpect(jsonPath("$.instance").value("/api/v1/games"));
         mvc.perform(get("/api/v1/session")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.hosted").value(true))
                 .andExpect(jsonPath("$.authenticated").value(false))
                 .andExpect(jsonPath("$.csrfToken").isString());
         mvc.perform(post("/api/v1/games").with(oidcLogin()).contentType(MediaType.APPLICATION_JSON).content(GAME))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.title").value("Forbidden"))
+                .andExpect(jsonPath("$.detail").value("Access denied"))
+                .andExpect(jsonPath("$.instance").value("/api/v1/games"));
+        mvc.perform(post("/api/v1/games").with(oidcLogin()).with(csrf().useInvalidToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(GAME))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.title").value("Forbidden"))
+                .andExpect(jsonPath("$.detail").value("Access denied"))
+                .andExpect(jsonPath("$.instance").value("/api/v1/games"));
+        mvc.perform(get("/private").accept(MediaType.TEXT_HTML))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/oauth2/authorization/google")));
         mvc.perform(get("/")).andExpect(status().isOk())
                 .andExpect(header().exists("Content-Security-Policy"));
     }
@@ -82,8 +103,8 @@ class HostedSecurityIntegrationTests {
         users.register(UUID.randomUUID(), second);
         String game = create("/api/v1/games", GAME, first);
         String play = create(game + "/plays", """
-                {"playthroughRating":"9","completionDate":"2026","platformPlayedOn":"PC",
-                 "timeToBeat":"30","completionRate":"100%","location":"Home"}
+                {"playthroughRating":9,"completionDate":"2026-01-01","platformPlayedOn":"PC",
+                 "timeToBeatMinutes":30,"completionStatus":"COMPLETE","location":"Home"}
                 """, first);
         String review = create(play + "/reviews", "{}", first);
         String time = create(play + "/time-entries", "{\"date\":\"2026-09-08\",\"durationMinutes\":30}", first);
@@ -101,8 +122,8 @@ class HostedSecurityIntegrationTests {
                 .contentType(MediaType.APPLICATION_JSON).content(GAME)).andExpect(status().isNotFound());
         mvc.perform(post(game + "/plays").with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("""
-                        {"playthroughRating":"9","completionDate":"2026","platformPlayedOn":"PC",
-                         "timeToBeat":"30","completionRate":"100%","location":"Home"}
+                        {"playthroughRating":9,"completionDate":"2026-01-01","platformPlayedOn":"PC",
+                         "timeToBeatMinutes":30,"completionStatus":"COMPLETE","location":"Home"}
                         """)).andExpect(status().isNotFound());
         mvc.perform(multipart(game + "/cover").file(new MockMultipartFile("file", "x.png", "image/png", new byte[8]))
                 .with(request -> { request.setMethod("PUT"); return request; })

@@ -47,11 +47,11 @@ class GameServicePersistenceTests {
         assertThat(loaded.getGameTitle()).isEqualTo("Original game");
         assertThat(loaded.getDescription()).isEqualTo("Description for Original game");
         assertThat(loaded.getReleasePlatform()).isEqualTo("PC");
-        assertThat(loaded.getReleaseDate()).isEqualTo("2026-09-07");
+        assertThat(loaded.getReleaseDate()).isEqualTo(java.time.LocalDate.parse("2026-09-07"));
         assertThat(loaded.getDeveloper()).isEqualTo("Developer");
-        assertThat(loaded.getMetaRating()).isEqualTo("90");
-        assertThat(loaded.getUserRating()).isEqualTo("9.0");
-        assertThat(loaded.getPhysicalCopy()).isEqualTo("Yes");
+        assertThat(loaded.getMetaRating()).isEqualByComparingTo("9");
+        assertThat(loaded.getUserRating()).isEqualByComparingTo("9.0");
+        assertThat(loaded.getPhysicalCopy()).isTrue();
     }
 
     @Test
@@ -103,11 +103,11 @@ class GameServicePersistenceTests {
         Game game = new Game(title);
         game.setDescription("Description for " + title);
         game.setReleasePlatform("PC");
-        game.setReleaseDate("2026-09-07");
+        game.setReleaseDate(java.time.LocalDate.parse("2026-09-07"));
         game.setDeveloper("Developer");
-        game.setMetaRating("90");
-        game.setUserRating("9.0");
-        game.setPhysicalCopy("Yes");
+        game.setMetaRating(new java.math.BigDecimal("9"));
+        game.setUserRating(new java.math.BigDecimal("9.0"));
+        game.setPhysicalCopy(true);
         return game;
     }
 

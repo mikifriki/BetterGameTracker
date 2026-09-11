@@ -18,8 +18,9 @@ mapping framework or generic service hierarchy.
   those games.
 - Flyway owns schema creation; Hibernate validates it. The application is still in
   development, so one shared V1 migration defines the complete current schema.
-- `frontend/` is plain HTML, CSS and JavaScript copied into the application's
-  static resources at build time. Neither Node nor a frontend framework is needed.
+- The separate root `frontend/` project is an Angular application. The backend
+  build compiles it and packages the generated assets as Spring static resources.
+  Node.js is required on build machines, but not in packaged local or hosted deployments.
 
 ## API
 
@@ -38,16 +39,43 @@ cannot reassign resources.
 Create returns 201 and Location; delete returns 204. Missing or inaccessible
 resources return 404. Invalid requests return 400 with Problem Details.
 
-Game fields: only `gameTitle` is required and must be nonblank. `description`,
-`releasePlatform`, `releaseDate`, `developer`, `metaRating`, `userRating`, and
-`physicalCopy` are optional.
-Play fields: required nonblank `playthroughRating`, `completionDate`,
-`platformPlayedOn`, `completionRate`, `location`; optional `timeToBeat` and `coop`.
-Review fields (`reviewDate`, `reviewTitle`, `review`, `rating`) are optional.
-These dates and ratings remain strings and are stored as `VARCHAR(255)`. Time
-entries use a required ISO date, positive integer `durationMinutes`, and optional
-`notes`. Same-date entries are allowed; fractional durations are rejected. PUT
-replaces editable scalar fields.
+Only `gameTitle` is required for games. Game description allows 1,000 characters;
+review text allows 5,000. Other text fields allow 255 characters. Overlength
+requests return 400 in both deployment modes.
+
+Game `releaseDate`, playthrough `completionDate`, and `reviewDate` are optional ISO
+dates (`YYYY-MM-DD`). Invalid dates return 400. All ratings (`metaRating`,
+`userRating`, `playthroughRating`, and review `rating`) are optional JSON numbers
+from 0 to 10 inclusive, with at most one decimal place. Invalid ratings are
+rejected rather than rounded. `physicalCopy` and `coop` are optional booleans.
+
+All PlayEntry metadata is optional. `completionStatus` accepts `IN_PROGRESS`,
+`COMPLETE`, or `DID_NOT_FINISH`. Unknown values and numeric enum values return 400.
+
+Playthroughs expose two independent durations:
+- `timeToBeatMinutes`: optional, manually entered nonnegative integer minutes,
+  replacing the old free-text `timeToBeat`. The form accepts hours and minutes.
+- `calculatedTimeMinutes`: read-only sum of that playthrough's time-entry durations,
+  returned on create, update, get, and list. It is zero without time entries and
+  uses a 64-bit integer. Supplying it in a request cannot override the calculation.
+
+For example, a manual total of 300 minutes and two 120-minute sessions returns
+`timeToBeatMinutes: 300` and `calculatedTimeMinutes: 240`. Editing or deleting
+sessions changes the calculated total on the next read, leaving the manual value
+alone. Totals are aggregated in SQL rather than loading session collections.
+
+Time entries use a required ISO date, positive integer `durationMinutes`, and
+optional `notes`. Same-date entries are allowed; fractional minutes are rejected.
+Optional metadata accepts omission or null. PUT replaces editable scalar fields,
+so omitted optional fields are cleared.
+
+Collections have stable default ordering: games by case-insensitive title ascending;
+playthroughs by completion date descending; reviews by review date descending;
+time entries by date descending. Missing dates sort last, and IDs ascending break ties.
+
+These schema changes update the unreleased V1 baseline. Existing development
+databases need recreation; the application does not convert legacy free-text
+values or reset databases automatically.
 
 Game deletion cascades to its plays, reviews and time entries. Cover files are
 removed after the database commit. Uploads accept PNG/JPEG signatures, up to 5 MB,
@@ -119,6 +147,10 @@ one application instance with persistent filesystem storage.
 python3 scripts/smoke.py java -jar build/libs/better-game-tracker-backend-0.0.1-SNAPSHOT.jar
 ```
 
+The Gradle build runs `npm ci`, the Angular production build, and frontend tests automatically.
+For frontend development, run `npm start` in the root `frontend/` directory while
+the backend is available on port 8080; the Angular development server proxies API requests.
+
 Native local builds require GraalVM JDK 21 and platform build tools on the build
 machine, not on end-user machines:
 
@@ -134,7 +166,7 @@ macOS. It does not publish unsigned binaries as a release.
 
 The default tests use isolated SQLite databases, including the hosted security
 integration suite. Set `BGT_TEST_POSTGRES_URL`, `BGT_TEST_POSTGRES_USERNAME` and
-`BGT_TEST_POSTGRES_PASSWORD` to run that suite against a dedicated empty PostgreSQL
+`BGT_TEST_POSTGRES_PASSWORD` to run the hosted security and typed-metadata suites against a dedicated empty PostgreSQL
 test database. It applies migrations and writes test data; never point it at a
 production database.
 

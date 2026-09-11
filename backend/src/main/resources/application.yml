@@ -11,6 +11,7 @@ spring:
       max-request-size: 6MB
   jackson:
     deserialization:
+      fail-on-numbers-for-enums: true
       accept-float-as-int: false
       fail-on-null-for-primitives: true
   sql:

@@ -1,5 +1,7 @@
 package com.bettergametracker.game;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,25 +31,27 @@ public class Game {
     @Column(nullable = false)
     private String gameTitle;
 
+    @Column(length = 1000)
     private String description;
 
     private String releasePlatform;
 
-    private String releaseDate;
+    private LocalDate releaseDate;
 
     private String developer;
 
-    private String metaRating;
+    @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
+    private BigDecimal metaRating;
 
-    private String userRating;
+    @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
+    private BigDecimal userRating;
 
-    private String physicalCopy;
+    private Boolean physicalCopy;
 
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayEntry> playEntries = new ArrayList<>();
 
     protected Game() {
-        // Required by JPA.
     }
 
     public Game(String gameTitle) {
@@ -86,11 +90,11 @@ public class Game {
         this.releasePlatform = releasePlatform;
     }
 
-    public String getReleaseDate() {
+    public LocalDate getReleaseDate() {
         return releaseDate;
     }
 
-    public void setReleaseDate(String releaseDate) {
+    public void setReleaseDate(LocalDate releaseDate) {
         this.releaseDate = releaseDate;
     }
 
@@ -102,27 +106,27 @@ public class Game {
         this.developer = developer;
     }
 
-    public String getMetaRating() {
+    public BigDecimal getMetaRating() {
         return metaRating;
     }
 
-    public void setMetaRating(String metaRating) {
+    public void setMetaRating(BigDecimal metaRating) {
         this.metaRating = metaRating;
     }
 
-    public String getUserRating() {
+    public BigDecimal getUserRating() {
         return userRating;
     }
 
-    public void setUserRating(String userRating) {
+    public void setUserRating(BigDecimal userRating) {
         this.userRating = userRating;
     }
 
-    public String getPhysicalCopy() {
+    public Boolean getPhysicalCopy() {
         return physicalCopy;
     }
 
-    public void setPhysicalCopy(String physicalCopy) {
+    public void setPhysicalCopy(Boolean physicalCopy) {
         this.physicalCopy = physicalCopy;
     }
 

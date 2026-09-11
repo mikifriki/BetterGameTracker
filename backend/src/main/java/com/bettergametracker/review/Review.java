@@ -1,5 +1,7 @@
 package com.bettergametracker.review;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.bettergametracker.play.PlayEntry;
@@ -21,14 +23,15 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    private String reviewDate;
+    private LocalDate reviewDate;
 
     private String reviewTitle;
 
-    @Column(name = "review_text")
+    @Column(name = "review_text", length = 5000)
     private String review;
 
-    private String rating;
+    @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
+    private BigDecimal rating;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "play_entry_id", nullable = false)
@@ -42,18 +45,17 @@ public class Review {
     private PlayEntry initialPlayEntry;
 
     public Review() {
-        // Required by JPA.
     }
 
     public UUID getId() {
         return id;
     }
 
-    public String getReviewDate() {
+    public LocalDate getReviewDate() {
         return reviewDate;
     }
 
-    public void setReviewDate(String reviewDate) {
+    public void setReviewDate(LocalDate reviewDate) {
         this.reviewDate = reviewDate;
     }
 
@@ -73,11 +75,11 @@ public class Review {
         this.review = review;
     }
 
-    public String getRating() {
+    public BigDecimal getRating() {
         return rating;
     }
 
-    public void setRating(String rating) {
+    public void setRating(BigDecimal rating) {
         this.rating = rating;
     }
 

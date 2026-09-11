@@ -8,6 +8,7 @@ import com.bettergametracker.cover.CoverStorage;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -42,7 +43,8 @@ public class GameService {
     }
 
     public List<Game> list() {
-        return gameRepository.findAllByOwnerId(currentUser.id());
+        return gameRepository.findAllByOwnerId(currentUser.id(),
+                Sort.by(Sort.Order.asc("gameTitle").ignoreCase(), Sort.Order.asc("id")));
     }
 
     @Transactional

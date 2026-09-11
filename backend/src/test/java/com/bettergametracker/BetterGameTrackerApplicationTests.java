@@ -39,7 +39,7 @@ class BetterGameTrackerApplicationTests {
     @Test
     void flywayMigratesAndHibernateValidatesTheTemporarySqliteSchema(@Autowired JdbcTemplate jdbcTemplate) {
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT time_to_beat FROM play_entries WHERE id = ?", String.class,
+                "SELECT time_to_beat_minutes FROM play_entries WHERE id = ?", String.class,
                 bytes("12121212121212121212121212121212"))).isNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT game_title FROM games WHERE id = ?", String.class,
@@ -57,7 +57,7 @@ class BetterGameTrackerApplicationTests {
                 Integer.class)).isEqualTo(5);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT type FROM pragma_table_info('games') WHERE name = 'description'", String.class))
-                .isEqualTo("VARCHAR(255)");
+                .isEqualTo("VARCHAR(1000)");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT \"notnull\" FROM pragma_table_info('games') WHERE name = 'game_title'", Integer.class))
                 .isEqualTo(1);
@@ -77,9 +77,9 @@ class BetterGameTrackerApplicationTests {
         insertGame(jdbcTemplate, unrelatedGameId, "Unrelated game");
         jdbcTemplate.update("""
                 INSERT INTO play_entries (id, playthrough_rating, completion_date, platform_played_on,
-                    time_to_beat, completion_rate, location, game_id)
+                    time_to_beat_minutes, completion_status, location, game_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, bytes(playEntryId), "9", "2026-09-06", "PC", "20 hours", "100%", "Home",
+                """, bytes(playEntryId), "9", "2026-09-06", "PC", 1200, "COMPLETE", "Home",
                 bytes(firstGameId));
         jdbcTemplate.update("""
                 INSERT INTO reviews (id, review_date, review_title, review_text, rating, play_entry_id)
@@ -314,7 +314,7 @@ class BetterGameTrackerApplicationTests {
                 INSERT INTO games (id, game_title, description, release_platform, release_date, developer,
                     meta_rating, user_rating, physical_copy)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, bytes(hexadecimalId), title, "Description", "PC", "2026-09-06", "Developer", "9", "9", "Yes");
+                """, bytes(hexadecimalId), title, "Description", "PC", "2026-09-06", "Developer", "9", "9", true);
     }
 
     private static byte[] bytes(String hexadecimalId) {
@@ -325,21 +325,21 @@ class BetterGameTrackerApplicationTests {
         Game game = new Game(title);
         game.setDescription("Description");
         game.setReleasePlatform("PC");
-        game.setReleaseDate("2026-09-06");
+        game.setReleaseDate(java.time.LocalDate.parse("2026-09-06"));
         game.setDeveloper("Developer");
-        game.setMetaRating("9");
-        game.setUserRating("9");
-        game.setPhysicalCopy("Yes");
+        game.setMetaRating(new java.math.BigDecimal("9"));
+        game.setUserRating(new java.math.BigDecimal("9"));
+        game.setPhysicalCopy(true);
         return game;
     }
 
     private static PlayEntry playEntry() {
         PlayEntry playEntry = new PlayEntry();
-        playEntry.setPlaythroughRating("9");
-        playEntry.setCompletionDate("2026-09-06");
+        playEntry.setPlaythroughRating(new java.math.BigDecimal("9"));
+        playEntry.setCompletionDate(java.time.LocalDate.parse("2026-09-06"));
         playEntry.setPlatformPlayedOn("PC");
-        playEntry.setTimeToBeat("20 hours");
-        playEntry.setCompletionRate("100%");
+        playEntry.setTimeToBeatMinutes(1200);
+        playEntry.setCompletionStatus(com.bettergametracker.play.CompletionStatus.COMPLETE);
         playEntry.setLocation("Home");
         return playEntry;
     }
@@ -366,8 +366,8 @@ class BetterGameTrackerApplicationTests {
                     """, bytes("11111111111111111111111111111111"));
             baseline.update("""
                     INSERT INTO play_entries (id, playthrough_rating, completion_date, platform_played_on,
-                        completion_rate, location, game_id)
-                    VALUES (?, '9', '2026-09-06', 'PC', '100%', 'Home', ?)
+                        completion_status, location, game_id)
+                    VALUES (?, '9', '2026-09-06', 'PC', 'COMPLETE', 'Home', ?)
                     """, bytes("12121212121212121212121212121212"), bytes("11111111111111111111111111111111"));
             return databasePath;
         } catch (java.io.IOException exception) {

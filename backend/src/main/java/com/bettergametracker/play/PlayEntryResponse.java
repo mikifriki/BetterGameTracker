@@ -1,15 +1,18 @@
 package com.bettergametracker.play;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record PlayEntryResponse(
         UUID id,
         UUID gameId,
-        String playthroughRating,
-        String completionDate,
+        BigDecimal playthroughRating,
+        LocalDate completionDate,
         String platformPlayedOn,
-        String timeToBeat,
-        String completionRate,
-        String coop,
-        String location) {
+        Integer timeToBeatMinutes,
+        CompletionStatus completionStatus,
+        Boolean coop,
+        String location,
+        long calculatedTimeMinutes) {
 }

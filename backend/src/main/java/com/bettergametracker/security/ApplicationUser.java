@@ -20,7 +20,6 @@ public class ApplicationUser {
     private String googleSubject;
 
     protected ApplicationUser() {
-        // Required by JPA.
     }
 
     public UUID getId() {

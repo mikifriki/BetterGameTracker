@@ -29,12 +29,12 @@ class PlayTimeEntryApiIntegrationTests {
     private static final Path DATABASE_PATH = createTemporaryDatabasePath();
     private static final String GAME = """
             {"gameTitle":"Game","description":"Description","releasePlatform":"PC",
-             "releaseDate":"2026-09-08","developer":"Developer","metaRating":"90",
-             "userRating":"9","physicalCopy":"No"}
+             "releaseDate":"2026-09-08","developer":"Developer","metaRating":9,
+             "userRating":9,"physicalCopy":false}
             """;
     private static final String PLAY = """
-            {"playthroughRating":"9","completionDate":"2026-09-08","platformPlayedOn":"PC",
-             "timeToBeat":"20 hours","completionRate":"100%","location":"Home"}
+            {"playthroughRating":9,"completionDate":"2026-09-08","platformPlayedOn":"PC",
+             "timeToBeatMinutes":1200,"completionStatus":"COMPLETE","location":"Home"}
             """;
     private static final String TIME = """
             {"date":"2026-09-08","durationMinutes":30,"notes":"Evening session"}

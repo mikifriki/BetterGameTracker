@@ -41,7 +41,6 @@ public class PlayTimeEntry {
     private String notes;
 
     public PlayTimeEntry() {
-        // Required by JPA.
     }
 
     public UUID getId() {
