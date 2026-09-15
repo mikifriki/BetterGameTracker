@@ -17,6 +17,7 @@ import { PlayEditor } from './play-editor';
     } @else if (error()) {
       <div class="content-state error" role="alert"><h1>Game unavailable</h1><p>{{ error() }}</p><a class="button secondary" routerLink="/library">Return to Library</a></div>
     } @else if (game(); as currentGame) {
+      @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
       <nav class="breadcrumbs" aria-label="Breadcrumb"><a [href]="libraryLink()">Library</a><span aria-hidden="true">›</span><span aria-current="page">{{ currentGame.gameTitle }}</span></nav>
       <section class="section-heading page-heading"><div><p class="eyebrow">Game details</p><h1>{{ currentGame.gameTitle }}</h1></div><div class="page-actions"><button type="button" class="secondary" (click)="editingGame.set(true)">Edit game</button><button type="button" class="danger-link" (click)="deleteGame()">Delete</button></div></section>
 
@@ -39,7 +40,7 @@ import { PlayEditor } from './play-editor';
         @if (!plays().length) { <div class="inline-empty"><p>No playthroughs yet. Add one to track status, reviews, and play time.</p></div> }
         @for (play of plays(); track play.id; let index = $index) {
           <article class="play-row">
-            <div><h3><a [routerLink]="['/games', currentGame.id, 'playthroughs', play.id]">Playthrough #{{ plays().length - index }}</a></h3><p>{{ play.platformPlayedOn || 'Platform not specified' }} <span aria-hidden="true">·</span> {{ play.completionDate || 'No completion date' }}</p></div>
+            <div><h3><a [routerLink]="['/games', currentGame.id, 'playthroughs', play.id]">Playthrough #{{ plays().length - index }}</a></h3><p>{{ play.platformPlayedOn || 'Platform not specified' }} <span aria-hidden="true">·</span> Start: {{ play.startDate || 'Not specified' }} <span aria-hidden="true">·</span> Completion: {{ play.completionDate || 'Not specified' }}</p></div>
             <dl><div><dt>Status</dt><dd>{{ play.completionStatus ? completionLabels[play.completionStatus] : 'Not specified' }}</dd></div><div><dt>Rating</dt><dd>{{ play.playthroughRating == null ? 'Not rated' : play.playthroughRating + '/10' }}</dd></div><div><dt>Logged</dt><dd>{{ duration(play.calculatedTimeMinutes) }}</dd></div></dl>
             <div class="row-actions"><a class="button secondary" [routerLink]="['/games', currentGame.id, 'playthroughs', play.id]">Open log</a><button class="text-button" type="button" (click)="editingPlay.set(play.id)">Edit</button><button class="danger-link" type="button" (click)="deletePlay(play)">Delete</button></div>
           </article>
@@ -62,6 +63,7 @@ export class GameDetailsPage implements OnInit {
   readonly plays = signal<PlayEntry[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly actionError = signal('');
   readonly editingGame = signal(false);
   readonly editingPlay = signal<string | 'new' | null>(null);
   readonly completionLabels = completionLabels;
@@ -71,6 +73,7 @@ export class GameDetailsPage implements OnInit {
 
   ngOnInit(): void { this.load(); }
   load(): void {
+    this.error.set('');
     this.loading.set(true);
     forkJoin({ game: this.api.getGame(this.gameId), plays: this.api.listPlays(this.gameId) }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => { this.game.set(result.game); this.plays.set(result.plays); this.loading.set(false); },
@@ -85,19 +88,24 @@ export class GameDetailsPage implements OnInit {
     return statuses.includes('IN_PROGRESS') ? 'Playing' : statuses.includes('COMPLETE') ? 'Completed' : statuses.includes('DID_NOT_FINISH') ? 'Dropped' : 'Backlog';
   }
   selectedPlay(): PlayEntry | null { return this.plays().find(play => play.id === this.editingPlay()) || null; }
-  saved(): void { this.editingGame.set(false); this.editingPlay.set(null); this.load(); this.api.loadLibrary().subscribe(); }
+  saved(): void { this.actionError.set(''); this.editingGame.set(false); this.editingPlay.set(null); this.load(); this.api.loadLibrary().subscribe(); }
   deleteGame(): void {
     if (!confirm(`Delete ${this.game()?.gameTitle}? Its playthroughs, reviews, time entries, and cover will also be deleted.`)) return;
-    this.api.deleteGame(this.gameId).subscribe({ next: () => { this.api.loadLibrary().subscribe(); void this.router.navigateByUrl(this.libraryLink()); }, error: error => this.error.set(this.api.errorMessage(error)) });
+    this.actionError.set('');
+    this.api.deleteGame(this.gameId).subscribe({ next: () => { this.api.loadLibrary().subscribe(); void this.router.navigateByUrl(this.libraryLink()); }, error: error => this.actionError.set(this.api.errorMessage(error)) });
   }
   deletePlay(play: PlayEntry): void {
     if (!confirm('Delete this playthrough and all of its reviews and time entries?')) return;
-    this.api.deletePlay(this.gameId, play.id).subscribe({ next: () => this.saved(), error: error => this.error.set(this.api.errorMessage(error)) });
+    this.actionError.set('');
+    this.api.deletePlay(this.gameId, play.id).subscribe({ next: () => this.saved(), error: error => this.actionError.set(this.api.errorMessage(error)) });
   }
   uploadCover(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!input.files?.[0]) return;
-    this.api.uploadCover(this.gameId, input.files[0]).subscribe({ next: () => this.coverVersion.update(value => value + 1), error: error => this.error.set(this.api.errorMessage(error)) });
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+    this.actionError.set('');
+    this.api.uploadCover(this.gameId, file).subscribe({ next: () => this.coverVersion.update(value => value + 1), error: error => this.actionError.set(this.api.errorMessage(error)) });
   }
-  removeCover(): void { this.api.deleteCover(this.gameId).subscribe({ next: () => this.coverVersion.update(value => value + 1), error: error => this.error.set(this.api.errorMessage(error)) }); }
+  removeCover(): void { this.actionError.set(''); this.api.deleteCover(this.gameId).subscribe({ next: () => this.coverVersion.update(value => value + 1), error: error => this.actionError.set(this.api.errorMessage(error)) }); }
 }

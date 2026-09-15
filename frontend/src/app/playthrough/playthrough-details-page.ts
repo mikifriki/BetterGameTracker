@@ -16,10 +16,11 @@ import { TimeEntryEditor } from './time-entry-editor';
     @if (loading()) { <div class="content-state" aria-busy="true"><h1>Loading playthrough…</h1></div> }
     @else if (error()) { <div class="content-state error" role="alert"><h1>Playthrough unavailable</h1><p>{{ error() }}</p></div> }
     @else if (game(); as currentGame) {
+      @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
       <nav class="breadcrumbs" aria-label="Breadcrumb"><a routerLink="/library">Library</a><span aria-hidden="true">›</span><a [routerLink]="['/games', gameId]">{{ currentGame.gameTitle }}</a><span aria-hidden="true">›</span><span aria-current="page">Playthrough</span></nav>
       <section class="section-heading page-heading"><div><p class="eyebrow">{{ currentGame.gameTitle }}</p><h1>Playthrough details</h1></div><button class="secondary" type="button" (click)="editingPlay.set(true)">Edit playthrough</button></section>
       @if (play(); as currentPlay) {
-        <dl class="play-summary detail-facts"><div><dt>Status</dt><dd>{{ currentPlay.completionStatus ? completionLabels[currentPlay.completionStatus] : 'Not specified' }}</dd></div><div><dt>Completion date</dt><dd>{{ currentPlay.completionDate || 'Not specified' }}</dd></div><div><dt>Personal rating</dt><dd>{{ currentPlay.playthroughRating == null ? 'Not rated' : currentPlay.playthroughRating + '/10' }}</dd></div><div><dt>Logged time</dt><dd>{{ duration(currentPlay.calculatedTimeMinutes) }}</dd></div><div><dt>Platform</dt><dd>{{ currentPlay.platformPlayedOn || 'Not specified' }}</dd></div><div><dt>Location</dt><dd>{{ currentPlay.location || 'Not specified' }}</dd></div></dl>
+        <dl class="play-summary detail-facts"><div><dt>Status</dt><dd>{{ currentPlay.completionStatus ? completionLabels[currentPlay.completionStatus] : 'Not specified' }}</dd></div><div><dt>Start date</dt><dd>{{ currentPlay.startDate || 'Not specified' }}</dd></div><div><dt>Completion date</dt><dd>{{ currentPlay.completionDate || 'Not specified' }}</dd></div><div><dt>Personal rating</dt><dd>{{ currentPlay.playthroughRating == null ? 'Not rated' : currentPlay.playthroughRating + '/10' }}</dd></div><div><dt>Logged time</dt><dd>{{ duration(currentPlay.calculatedTimeMinutes) }}</dd></div><div><dt>Platform</dt><dd>{{ currentPlay.platformPlayedOn || 'Not specified' }}</dd></div><div><dt>Location</dt><dd>{{ currentPlay.location || 'Not specified' }}</dd></div></dl>
 
         <section class="content-section">
           <div class="section-heading"><div><p class="eyebrow">Play journal</p><h2>Time log</h2></div><button class="primary" type="button" (click)="editingTime.set('new')">Add time entry</button></div>
@@ -52,6 +53,7 @@ export class PlaythroughDetailsPage implements OnInit {
   readonly reviews = signal<Review[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly actionError = signal('');
   readonly editingPlay = signal(false);
   readonly editingTime = signal<string | 'new' | null>(null);
   readonly editingReview = signal<string | 'new' | null>(null);
@@ -60,14 +62,23 @@ export class PlaythroughDetailsPage implements OnInit {
 
   ngOnInit(): void { this.load(); }
   load(): void {
+    this.error.set('');
     forkJoin({ game: this.api.getGame(this.gameId), play: this.api.getPlay(this.gameId, this.playId), times: this.api.listTimeEntries(this.gameId, this.playId), reviews: this.api.listReviews(this.gameId, this.playId) }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => { this.game.set(result.game); this.play.set(result.play); this.times.set(result.times); this.reviews.set(result.reviews); this.loading.set(false); },
       error: error => { this.error.set(this.api.errorMessage(error)); this.loading.set(false); }
     });
   }
-  saved(): void { this.editingPlay.set(false); this.editingTime.set(null); this.editingReview.set(null); this.load(); this.api.loadLibrary().subscribe(); }
+  saved(): void { this.actionError.set(''); this.editingPlay.set(false); this.editingTime.set(null); this.editingReview.set(null); this.load(); this.api.loadLibrary().subscribe(); }
   selectedTime(): TimeEntry | null { return this.times().find(entry => entry.id === this.editingTime()) || null; }
   selectedReview(): Review | null { return this.reviews().find(review => review.id === this.editingReview()) || null; }
-  deleteTime(entry: TimeEntry): void { if (confirm(`Delete the ${entry.date} time entry?`)) this.api.deleteTimeEntry(this.gameId, this.playId, entry.id).subscribe({ next: () => this.saved(), error: error => this.error.set(this.api.errorMessage(error)) }); }
-  deleteReview(review: Review): void { if (confirm(`Delete ${review.reviewTitle || 'this review'}?`)) this.api.deleteReview(this.gameId, this.playId, review.id).subscribe({ next: () => this.saved(), error: error => this.error.set(this.api.errorMessage(error)) }); }
+  deleteTime(entry: TimeEntry): void {
+    if (!confirm(`Delete the ${entry.date} time entry?`)) return;
+    this.actionError.set('');
+    this.api.deleteTimeEntry(this.gameId, this.playId, entry.id).subscribe({ next: () => this.saved(), error: error => this.actionError.set(this.api.errorMessage(error)) });
+  }
+  deleteReview(review: Review): void {
+    if (!confirm(`Delete ${review.reviewTitle || 'this review'}?`)) return;
+    this.actionError.set('');
+    this.api.deleteReview(this.gameId, this.playId, review.id).subscribe({ next: () => this.saved(), error: error => this.actionError.set(this.api.errorMessage(error)) });
+  }
 }

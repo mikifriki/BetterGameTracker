@@ -68,7 +68,14 @@ export class ApiService {
   }
   deleteCover(gameId: string): Observable<void> { return this.write<void>('delete', `/api/v1/games/${gameId}/cover`); }
 
-  signOut(): Observable<unknown> { return this.write('post', '/logout'); }
+  signOut(): Observable<string> {
+    return this.http.post('/logout', null, { headers: this.csrfHeaders(), responseType: 'text' }).pipe(
+      tap(() => {
+        this.library.set([]);
+        this.session.update(session => session ? { ...session, authenticated: false, csrfToken: null } : session);
+      })
+    );
+  }
 
   errorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
@@ -77,12 +84,15 @@ export class ApiService {
     return 'Something went wrong. Please try again.';
   }
 
-  private write<T>(method: 'post' | 'put' | 'delete', path: string, body?: unknown): Observable<T> {
+  private csrfHeaders(): HttpHeaders | undefined {
     const session = this.session();
-    const headers = session?.csrfToken && session.csrfHeader
+    return session?.csrfToken && session.csrfHeader
       ? new HttpHeaders().set(session.csrfHeader, session.csrfToken)
       : undefined;
-    return this.http.request<T>(method, path, { body, headers }).pipe(
+  }
+
+  private write<T>(method: 'post' | 'put' | 'delete', path: string, body?: unknown): Observable<T> {
+    return this.http.request<T>(method, path, { body, headers: this.csrfHeaders() }).pipe(
       tap({ error: error => { if (error instanceof HttpErrorResponse && error.status === 401) this.session.update(value => value ? { ...value, authenticated: false } : value); } })
     );
   }

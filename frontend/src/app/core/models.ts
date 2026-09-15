@@ -24,6 +24,7 @@ export interface PlayEntry {
   id: string;
   gameId: string;
   playthroughRating: number | null;
+  startDate: string | null;
   completionDate: string | null;
   platformPlayedOn: string | null;
   timeToBeatMinutes: number | null;

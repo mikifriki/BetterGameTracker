@@ -33,12 +33,16 @@ export class TimeEntryEditor implements AfterViewInit {
   readonly api = inject(ApiService);
   readonly saving = signal(false);
   readonly error = signal('');
+  private readonly defaultDate = (() => {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  })();
   readonly form = new FormGroup({
-    date: new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true, validators: Validators.required }),
+    date: new FormControl(this.defaultDate, { nonNullable: true, validators: Validators.required }),
     hours: new FormControl<number>(0, { nonNullable: true, validators: Validators.min(0) }),
     minutes: new FormControl<number>(0, { nonNullable: true, validators: [Validators.min(0), Validators.max(59)] }),
     notes: new FormControl<string | null>(null, Validators.maxLength(255))
-  });
+  }, { validators: control => (control.value.hours ?? 0) * 60 + (control.value.minutes ?? 0) >= 1 ? null : { duration: true } });
 
   ngAfterViewInit(): void {
     const entry = this.entry();
@@ -48,7 +52,7 @@ export class TimeEntryEditor implements AfterViewInit {
   get dialog(): HTMLDialogElement { return this.dialogRef().nativeElement; }
   save(): void {
     const raw = this.form.getRawValue();
-    if (this.form.invalid || raw.hours * 60 + raw.minutes < 1) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const value: TimeEntryInput = { date: raw.date, durationMinutes: raw.hours * 60 + raw.minutes, notes: raw.notes || null };
     this.saving.set(true);
     this.api.saveTimeEntry(this.gameId(), this.playId(), value, this.entry()?.id).pipe(finalize(() => this.saving.set(false))).subscribe({

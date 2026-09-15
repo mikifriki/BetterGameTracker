@@ -689,6 +689,10 @@ Every PlayEntry has its own stable identifier.
 
 A PlayEntry belongs to exactly one Game.
 
+A PlayEntry has an optional start date. New playthroughs default an omitted or null
+start date to the current date when created. Existing playthroughs may retain a null
+start date, and a full-replacement update may explicitly clear it.
+
 A PlayEntry may have:
 
 - Zero or more Reviews

@@ -1,3 +1,4 @@
+import { PortalIcon } from '../shared/portal-icon';
 import { Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LibraryStatus } from '../core/models';
@@ -7,7 +8,7 @@ export type ViewMode = 'grid' | 'list';
 
 @Component({
   selector: 'bgt-library-toolbar',
-  imports: [FormsModule],
+  imports: [PortalIcon, FormsModule],
   template: `
     <div class="library-toolbar" aria-label="Library controls">
       <label class="search-control">Search
@@ -34,8 +35,8 @@ export type ViewMode = 'grid' | 'list';
         </select>
       </label>
       <div class="view-toggle" aria-label="View mode">
-        <button type="button" [class.active]="view() === 'grid'" [attr.aria-pressed]="view() === 'grid'" (click)="viewChange.emit('grid')" aria-label="Grid view">▦</button>
-        <button type="button" [class.active]="view() === 'list'" [attr.aria-pressed]="view() === 'list'" (click)="viewChange.emit('list')" aria-label="List view">☷</button>
+        <button type="button" [class.active]="view() === 'grid'" [attr.aria-pressed]="view() === 'grid'" (click)="viewChange.emit('grid')" aria-label="Grid view"><bgt-icon name="grid" /></button>
+        <button type="button" [class.active]="view() === 'list'" [attr.aria-pressed]="view() === 'list'" (click)="viewChange.emit('list')" aria-label="List view"><bgt-icon name="list" /></button>
       </div>
     </div>
   `

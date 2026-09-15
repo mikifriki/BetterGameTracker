@@ -19,6 +19,7 @@ import { PlayEntry, PlayInput } from '../core/models';
             <select formControlName="completionStatus"><option value="">Not specified</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETE">Complete</option><option value="DID_NOT_FINISH">Did not finish</option></select>
           </label>
           <label>Personal rating <span class="hint">0–10</span><input type="number" formControlName="playthroughRating" min="0" max="10" step="0.1"></label>
+          <label>Start date <input type="date" formControlName="startDate"></label>
           <label>Completion date <input type="date" formControlName="completionDate"></label>
           <label>Platform played on <input formControlName="platformPlayedOn" maxlength="255"></label>
           <fieldset class="duration-fields"><legend>Manual total time <span class="hint">optional</span></legend><label>Hours <input type="number" formControlName="hours" min="0" max="35791394" step="1"></label><label>Minutes <input type="number" formControlName="minutes" min="0" max="59" step="1"></label></fieldset>
@@ -42,9 +43,14 @@ export class PlayEditor implements AfterViewInit {
   readonly api = inject(ApiService);
   readonly saving = signal(false);
   readonly error = signal('');
+  private readonly defaultStartDate = (() => {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  })();
   readonly form = new FormGroup({
     completionStatus: new FormControl(''),
     playthroughRating: new FormControl<number | null>(null, [Validators.min(0), Validators.max(10)]),
+    startDate: new FormControl<string | null>(this.defaultStartDate),
     completionDate: new FormControl<string | null>(null),
     platformPlayedOn: new FormControl<string | null>(null, Validators.maxLength(255)),
     hours: new FormControl<number | null>(null, [Validators.min(0), Validators.max(35791394)]),
@@ -74,6 +80,7 @@ export class PlayEditor implements AfterViewInit {
     const value: PlayInput = {
       completionStatus: raw.completionStatus ? raw.completionStatus as PlayInput['completionStatus'] : null,
       playthroughRating: raw.playthroughRating,
+      startDate: raw.startDate || null,
       completionDate: raw.completionDate || null,
       platformPlayedOn: raw.platformPlayedOn || null,
       timeToBeatMinutes: hasDuration ? (raw.hours || 0) * 60 + (raw.minutes || 0) : null,

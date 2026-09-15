@@ -23,7 +23,7 @@ describe('library formatters', () => {
     };
     const play = (id: string, calculatedTimeMinutes: number, completionStatus: PlayEntry['completionStatus']): PlayEntry => ({
       id, gameId: game.id, calculatedTimeMinutes, completionStatus, playthroughRating: null,
-      completionDate: null, platformPlayedOn: null, timeToBeatMinutes: 999, coop: null, location: null
+      startDate: null, completionDate: null, platformPlayedOn: null, timeToBeatMinutes: 999, coop: null, location: null
     });
     const result = toLibraryGame({ ...game, plays: [play('one', 60, 'COMPLETE'), play('two', 75, null)] });
     expect(result.totalMinutes).toBe(135);
