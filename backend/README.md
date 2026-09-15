@@ -16,8 +16,8 @@ mapping framework or generic service hierarchy.
   that check. User IDs and JPA relationships are not exposed in response DTOs.
 - Local mode has no accounts. Its games have no owner, and queries select only
   those games.
-- Flyway owns schema creation; Hibernate validates it. The application is still in
-  development, so one shared V1 migration defines the complete current schema.
+- Flyway owns schema creation and evolution; Hibernate validates it. V1 defines the
+  initial schema, including the nullable playthrough start date.
 - The separate root `frontend/` project is an Angular application. The backend
   build compiles it and packages the generated assets as Spring static resources.
   Node.js is required on build machines, but not in packaged local or hosted deployments.
@@ -43,8 +43,11 @@ Only `gameTitle` is required for games. Game description allows 1,000 characters
 review text allows 5,000. Other text fields allow 255 characters. Overlength
 requests return 400 in both deployment modes.
 
-Game `releaseDate`, playthrough `completionDate`, and `reviewDate` are optional ISO
-dates (`YYYY-MM-DD`). Invalid dates return 400. All ratings (`metaRating`,
+Game `releaseDate`, playthrough `startDate` and `completionDate`, and `reviewDate`
+are optional strict ISO dates (`YYYY-MM-DD`). Invalid dates return 400. On playthrough
+creation, an omitted or null `startDate` defaults to the server's current date. PUT
+is a full replacement, so an omitted or null `startDate` clears the stored value.
+All ratings (`metaRating`,
 `userRating`, `playthroughRating`, and review `rating`) are optional JSON numbers
 from 0 to 10 inclusive, with at most one decimal place. Invalid ratings are
 rejected rather than rounded. `physicalCopy` and `coop` are optional booleans.
@@ -73,9 +76,7 @@ Collections have stable default ordering: games by case-insensitive title ascend
 playthroughs by completion date descending; reviews by review date descending;
 time entries by date descending. Missing dates sort last, and IDs ascending break ties.
 
-These schema changes update the unreleased V1 baseline. Existing development
-databases need recreation; the application does not convert legacy free-text
-values or reset databases automatically.
+The `play_entries.start_date` column is nullable and has no database default.
 
 Game deletion cascades to its plays, reviews and time entries. Cover files are
 removed after the database commit. Uploads accept PNG/JPEG signatures, up to 5 MB,
@@ -148,6 +149,16 @@ python3 scripts/smoke.py java -jar build/libs/better-game-tracker-backend-0.0.1-
 ```
 
 The Gradle build runs `npm ci`, the Angular production build, and frontend tests automatically.
+If IntelliJ cannot start `npm`, set the directory containing both `node` and `npm`
+in a local `backend/gradle.properties` file (ignored by Git). For Homebrew on Apple Silicon:
+
+```properties
+nodeBinDirectory=/opt/homebrew/bin
+```
+
+Gradle uses this directory to launch npm and adds it to the frontend tasks' `PATH`.
+Without this property, the build uses npm from the inherited `PATH`.
+
 For frontend development, run `npm start` in the root `frontend/` directory while
 the backend is available on port 8080; the Angular development server proxies API requests.
 

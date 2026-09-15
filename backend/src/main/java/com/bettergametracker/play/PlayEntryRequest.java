@@ -14,6 +14,8 @@ import jakarta.validation.constraints.Size;
 public record PlayEntryRequest(
         @DecimalMin("0") @DecimalMax("10") @Digits(integer = 2, fraction = 1) BigDecimal playthroughRating,
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "uuuu-MM-dd", lenient = OptBoolean.FALSE)
+        LocalDate startDate,
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "uuuu-MM-dd", lenient = OptBoolean.FALSE)
         LocalDate completionDate,
         @Size(max = 255) String platformPlayedOn,
         @PositiveOrZero Integer timeToBeatMinutes,

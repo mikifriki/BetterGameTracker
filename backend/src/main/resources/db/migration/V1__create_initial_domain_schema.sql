@@ -24,6 +24,7 @@ CREATE TABLE games (
 CREATE TABLE play_entries (
     id ${uuidType} NOT NULL PRIMARY KEY,
     playthrough_rating DECIMAL(3,1) CHECK (playthrough_rating BETWEEN 0 AND 10),
+    start_date DATE,
     completion_date DATE,
     platform_played_on VARCHAR(255),
     time_to_beat_minutes INTEGER CHECK (time_to_beat_minutes >= 0),

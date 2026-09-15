@@ -33,7 +33,7 @@ class ApiIntegrationTests {
              "userRating":9,"physicalCopy":false}
             """;
     private static final String PLAY = """
-            {"playthroughRating":9,"completionDate":"2026-09-08","platformPlayedOn":"PC",
+            {"playthroughRating":9,"startDate":"2026-09-01","completionDate":"2026-09-08","platformPlayedOn":"PC",
              "timeToBeatMinutes":1200,"completionStatus":"COMPLETE","location":"Home"}
             """;
     private static final String REVIEW = """
@@ -150,6 +150,34 @@ class ApiIntegrationTests {
     }
 
     @Test
+    void persistsExplicitAndDefaultStartDatesAndAllowsUpdateToClearThem() throws Exception {
+        String game = create("/api/v1/games", GAME);
+        String explicitPlay = create(game + "/plays", PLAY);
+        java.time.LocalDate before = java.time.LocalDate.now();
+        String defaultedPlay = create(game + "/plays", "{}");
+        java.time.LocalDate after = java.time.LocalDate.now();
+        try {
+            mockMvc.perform(get(explicitPlay)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.startDate").value("2026-09-01"));
+            mockMvc.perform(get(game + "/plays")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[*].startDate").value(
+                            org.hamcrest.Matchers.hasItem("2026-09-01")));
+            String defaultedDate = objectMapper.readTree(mockMvc.perform(get(defaultedPlay))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                    .get("startDate").asText();
+            assertThat(java.time.LocalDate.parse(defaultedDate)).isBetween(before, after);
+
+            mockMvc.perform(put(explicitPlay).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.startDate").value(org.hamcrest.Matchers.nullValue()));
+            mockMvc.perform(get(explicitPlay)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.startDate").value(org.hamcrest.Matchers.nullValue()));
+        } finally {
+            mockMvc.perform(delete(game)).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
     void persistsCompletionStatusesAndRejectsInvalidValues() throws Exception {
         String game = create("/api/v1/games", GAME);
         String play = create(game + "/plays", "{}");
@@ -197,6 +225,13 @@ class ApiIntegrationTests {
                                     .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
                             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
                 }
+                for (String method : java.util.List.of("POST", "PUT")) {
+                    mockMvc.perform(request(HttpMethod.valueOf(method), method.equals("POST") ? game + "/plays" : play)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"startDate\":\"" + date + "\"}"))
+                            .andExpect(status().isBadRequest())
+                            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+                }
             }
             for (String value : java.util.List.of("\"Yes\"", "{}", "[]")) {
                 mockMvc.perform(post("/api/v1/games").contentType(MediaType.APPLICATION_JSON)
@@ -225,7 +260,7 @@ class ApiIntegrationTests {
                 body.fieldNames().forEachRemaining(fields::add);
                 for (String field : fields) {
                     if (!body.get(field).isTextual() || field.equals("releaseDate") || field.equals("date") || field.equals("completionStatus")
-                            || field.equals("completionDate") || field.equals("reviewDate")) {
+                            || field.equals("startDate") || field.equals("completionDate") || field.equals("reviewDate")) {
                         continue;
                     }
                     int limit = field.equals("description") ? 1000 : field.equals("review") ? 5000 : 255;

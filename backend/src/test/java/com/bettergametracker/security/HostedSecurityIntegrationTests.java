@@ -93,6 +93,23 @@ class HostedSecurityIntegrationTests {
     }
 
     @Test
+    void servesBundledFrontendWithoutLogin() throws Exception {
+        mvc.perform(get("/index.html")).andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
+        var resources = new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+        for (String extension : new String[] {"js", "css"}) {
+            var assets = resources.getResources("classpath:/static/*." + extension);
+            assertThat(assets).isNotEmpty();
+            for (var asset : assets) {
+                mvc.perform(get("/" + asset.getFilename())).andExpect(status().isOk())
+                        .andExpect(content().bytes(asset.getContentAsByteArray()));
+            }
+        }
+        mvc.perform(get("/library")).andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+    }
+
+    @Test
     void isolatesGamesAndAllNestedResourcesBetweenUsers() throws Exception {
         String first = UUID.randomUUID().toString();
         String second = UUID.randomUUID().toString();

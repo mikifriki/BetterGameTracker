@@ -58,6 +58,7 @@ public class PlayEntryController {
     private static PlayEntry toPlayEntry(PlayEntryRequest request) {
         PlayEntry playEntry = new PlayEntry();
         playEntry.setPlaythroughRating(request.playthroughRating());
+        playEntry.setStartDate(request.startDate());
         playEntry.setCompletionDate(request.completionDate());
         playEntry.setPlatformPlayedOn(request.platformPlayedOn());
         playEntry.setTimeToBeatMinutes(request.timeToBeatMinutes());
@@ -73,6 +74,7 @@ public class PlayEntryController {
                 playEntry.getId(),
                 playEntry.getGame().getId(),
                 playEntry.getPlaythroughRating(),
+                playEntry.getStartDate(),
                 playEntry.getCompletionDate(),
                 playEntry.getPlatformPlayedOn(),
                 playEntry.getTimeToBeatMinutes(),

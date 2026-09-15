@@ -130,6 +130,7 @@ class PlayTimeEntryApiIntegrationTests {
         for (HttpMethod method : new HttpMethod[] {HttpMethod.POST, HttpMethod.PUT}) {
             for (String body : new String[] {"{}", "{", "null", "[]",
                     TIME.replace("2026-09-08", "invalid"), TIME.replace("2026-09-08", "2026-02-30"),
+                    TIME.replace("2026-09-08", "2026-09-08T12:30:00"),
                     TIME.replace("30", "1.5"), TIME.replace("30", "0"), TIME.replace("30", "-1"), TIME.replace("30", "null"),
                     TIME.replace("30", "2147483648"), TIME.replace("\"2026-09-08\"", "null")}) {
                 mockMvc.perform(request(method, method == HttpMethod.POST ? collection : entry)

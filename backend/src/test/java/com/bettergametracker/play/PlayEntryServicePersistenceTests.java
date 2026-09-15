@@ -1,6 +1,7 @@
 package com.bettergametracker.play;
 
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.bettergametracker.game.Game;
@@ -51,6 +52,7 @@ class PlayEntryServicePersistenceTests {
         PlayEntry loaded = playEntryService.get(game.getId(), playEntryId);
         assertThat(loaded.getId()).isEqualTo(playEntryId);
         assertThat(loaded.getPlaythroughRating()).isEqualByComparingTo("6");
+        assertThat(loaded.getStartDate()).isEqualTo(LocalDate.parse("2026-09-01"));
         assertThat(loaded.getCompletionDate()).isEqualTo(java.time.LocalDate.parse("2026-09-07"));
         assertThat(loaded.getPlatformPlayedOn()).isEqualTo("Original platform");
         assertThat(loaded.getTimeToBeatMinutes()).isEqualTo(120);
@@ -58,6 +60,21 @@ class PlayEntryServicePersistenceTests {
         assertThat(loaded.getCoop()).isTrue();
         assertThat(loaded.getLocation()).isEqualTo("Original location");
         assertThat(loaded.getGame().getId()).isEqualTo(game.getId());
+    }
+
+    @Test
+    void defaultsMissingStartDateOnCreate() {
+        Game game = gameService.create(game("Game"));
+        PlayEntry playEntry = playEntry("Original");
+        playEntry.setStartDate(null);
+
+        LocalDate before = LocalDate.now();
+        UUID playEntryId = playEntryService.create(game.getId(), playEntry).playEntry().getId();
+        LocalDate after = LocalDate.now();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(playEntryService.get(game.getId(), playEntryId).getStartDate()).isBetween(before, after);
     }
 
     @Test
@@ -79,6 +96,7 @@ class PlayEntryServicePersistenceTests {
         UUID playEntryId = playEntryService.create(game.getId(), playEntry("Original")).playEntry().getId();
         PlayEntry replacement = playEntry("Replacement");
         replacement.setCoop(null);
+        replacement.setStartDate(null);
 
         PlayEntry updated = playEntryService.update(game.getId(), playEntryId, replacement).playEntry();
         entityManager.flush();
@@ -87,6 +105,7 @@ class PlayEntryServicePersistenceTests {
         PlayEntry loaded = playEntryService.get(game.getId(), playEntryId);
         assertThat(updated.getId()).isEqualTo(playEntryId);
         assertThat(loaded.getPlaythroughRating()).isEqualByComparingTo("8");
+        assertThat(loaded.getStartDate()).isNull();
         assertThat(loaded.getCompletionDate()).isEqualTo(java.time.LocalDate.parse("2026-09-08"));
         assertThat(loaded.getPlatformPlayedOn()).isEqualTo("Replacement platform");
         assertThat(loaded.getTimeToBeatMinutes()).isEqualTo(180);
@@ -164,6 +183,7 @@ class PlayEntryServicePersistenceTests {
     private static PlayEntry playEntry(String prefix) {
         PlayEntry playEntry = new PlayEntry();
         playEntry.setPlaythroughRating(new java.math.BigDecimal(prefix.equals("Original") ? "6" : "8"));
+        playEntry.setStartDate(LocalDate.parse(prefix.equals("Original") ? "2026-09-01" : "2026-09-02"));
         playEntry.setCompletionDate(java.time.LocalDate.parse(prefix.equals("Original") ? "2026-09-07" : "2026-09-08"));
         playEntry.setPlatformPlayedOn(prefix + " platform");
         playEntry.setTimeToBeatMinutes(prefix.equals("Original") ? 120 : 180);

@@ -49,6 +49,5 @@ public class PlayTimeEntryService {
     public void delete(UUID gameId, UUID playEntryId, UUID timeEntryId) {
         PlayTimeEntry timeEntry = get(gameId, playEntryId, timeEntryId);
         timeEntry.getPlayEntry().removeTimeEntry(timeEntry);
-        timeEntryRepository.delete(timeEntry);
     }
 }

@@ -8,6 +8,7 @@ public record PlayEntryResponse(
         UUID id,
         UUID gameId,
         BigDecimal playthroughRating,
+        LocalDate startDate,
         LocalDate completionDate,
         String platformPlayedOn,
         Integer timeToBeatMinutes,

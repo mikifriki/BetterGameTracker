@@ -52,6 +52,5 @@ public class ReviewService {
     public void delete(UUID gameId, UUID playEntryId, UUID reviewId) {
         Review review = get(gameId, playEntryId, reviewId);
         review.getPlayEntry().removeReview(review);
-        reviewRepository.delete(review);
     }
 }

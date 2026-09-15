@@ -34,6 +34,8 @@ public class PlayEntry {
     @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
     private BigDecimal playthroughRating;
 
+    private LocalDate startDate;
+
     private LocalDate completionDate;
 
     private String platformPlayedOn;
@@ -77,6 +79,14 @@ public class PlayEntry {
 
     public void setPlaythroughRating(BigDecimal playthroughRating) {
         this.playthroughRating = playthroughRating;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
     }
 
     public LocalDate getCompletionDate() {

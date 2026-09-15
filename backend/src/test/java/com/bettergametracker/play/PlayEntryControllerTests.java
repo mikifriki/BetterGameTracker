@@ -39,6 +39,7 @@ class PlayEntryControllerTests {
     private static final String REQUEST = """
             {
               "playthroughRating": 9,
+              "startDate": "2026-09-01",
               "completionDate": "2026-09-07",
               "platformPlayedOn": "PC",
               "timeToBeatMinutes": 1200,
@@ -62,12 +63,14 @@ class PlayEntryControllerTests {
         mockMvc.perform(get(BASE_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(PLAY_ID.toString()))
-                .andExpect(jsonPath("$[0].gameId").value(GAME_ID.toString()));
+                .andExpect(jsonPath("$[0].gameId").value(GAME_ID.toString()))
+                .andExpect(jsonPath("$[0].startDate").value("2026-09-01"));
         mockMvc.perform(get(BASE_PATH + "/" + PLAY_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(PLAY_ID.toString()))
                 .andExpect(jsonPath("$.gameId").value(GAME_ID.toString()))
                 .andExpect(jsonPath("$.playthroughRating").value(9))
+                .andExpect(jsonPath("$.startDate").value("2026-09-01"))
                 .andExpect(jsonPath("$.completionDate").value("2026-09-07"))
                 .andExpect(jsonPath("$.platformPlayedOn").value("PC"))
                 .andExpect(jsonPath("$.timeToBeatMinutes").value(1200))
@@ -170,6 +173,7 @@ class PlayEntryControllerTests {
         PlayEntry entry = new PlayEntry();
         ReflectionTestUtils.setField(entry, "id", PLAY_ID);
         entry.setPlaythroughRating(new java.math.BigDecimal("9"));
+        entry.setStartDate(java.time.LocalDate.parse("2026-09-01"));
         entry.setCompletionDate(java.time.LocalDate.parse("2026-09-07"));
         entry.setPlatformPlayedOn("PC");
         entry.setTimeToBeatMinutes(1200);

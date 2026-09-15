@@ -38,8 +38,20 @@ class BetterGameTrackerApplicationTests {
 
     @Test
     void flywayMigratesAndHibernateValidatesTheTemporarySqliteSchema(@Autowired JdbcTemplate jdbcTemplate) {
+        jdbcTemplate.update("""
+                INSERT INTO games (id, game_title)
+                VALUES (?, 'V1 game')
+                """, bytes("11111111111111111111111111111111"));
+        jdbcTemplate.update("""
+                INSERT INTO play_entries (id, playthrough_rating, completion_date, platform_played_on,
+                    completion_status, location, game_id)
+                VALUES (?, '9', '2026-09-06', 'PC', 'COMPLETE', 'Home', ?)
+                """, bytes("12121212121212121212121212121212"), bytes("11111111111111111111111111111111"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT time_to_beat_minutes FROM play_entries WHERE id = ?", String.class,
+                bytes("12121212121212121212121212121212"))).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT start_date FROM play_entries WHERE id = ?", String.class,
                 bytes("12121212121212121212121212121212"))).isNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT game_title FROM games WHERE id = ?", String.class,
@@ -354,21 +366,6 @@ class BetterGameTrackerApplicationTests {
         try {
             Path databasePath = java.nio.file.Files.createTempFile("better-game-tracker-schema-", ".db");
             databasePath.toFile().deleteOnExit();
-            String url = "jdbc:sqlite:" + databasePath;
-            org.flywaydb.core.Flyway.configure()
-                    .dataSource(url, null, null)
-                    .placeholders(java.util.Map.of("uuidType", "BLOB"))
-                    .load().migrate();
-            JdbcTemplate baseline = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(url));
-            baseline.update("""
-                    INSERT INTO games (id, game_title)
-                    VALUES (?, 'V1 game')
-                    """, bytes("11111111111111111111111111111111"));
-            baseline.update("""
-                    INSERT INTO play_entries (id, playthrough_rating, completion_date, platform_played_on,
-                        completion_status, location, game_id)
-                    VALUES (?, '9', '2026-09-06', 'PC', 'COMPLETE', 'Home', ?)
-                    """, bytes("12121212121212121212121212121212"), bytes("11111111111111111111111111111111"));
             return databasePath;
         } catch (java.io.IOException exception) {
             throw new IllegalStateException("Could not create temporary SQLite database", exception);

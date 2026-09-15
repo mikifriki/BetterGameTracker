@@ -41,6 +41,7 @@ public class SecurityConfiguration {
         var browserAccessDenied = new AccessDeniedHandlerImpl();
         return http.authorizeHttpRequests(requests -> requests
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                        .requestMatchers("/index.html", "/*.js", "/*.css", "/media/**").permitAll()
                         .requestMatchers("/", "/library", "/stats", "/settings", "/help", "/about", "/games/**",
                                 "/api/v1/session", "/error").permitAll()
                         .anyRequest().authenticated())
