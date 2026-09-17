@@ -8,6 +8,7 @@ import { toLibraryGame } from './formatters';
 export class ApiService {
   readonly session = signal<Session | null>(null);
   readonly library = signal<LibraryGame[]>([]);
+  private libraryLoaded = false;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -16,11 +17,12 @@ export class ApiService {
   }
 
   loadLibrary(): Observable<LibraryGame[]> {
+    if (this.libraryLoaded) return of(this.library());
     return this.http.get<Game[]>('/api/v1/games').pipe(
       switchMap(games => games.length
         ? forkJoin(games.map(game => this.listPlays(game.id).pipe(map(plays => toLibraryGame({ ...game, plays })))))
         : of([] as LibraryGame[])),
-      tap(games => this.library.set(games))
+      tap(games => { this.library.set(games); this.libraryLoaded = true; })
     );
   }
 
@@ -36,16 +38,63 @@ export class ApiService {
     };
   }
 
-  getGame(id: string): Observable<Game> { return this.http.get<Game>(`/api/v1/games/${id}`); }
-  createGame(value: GameInput): Observable<Game> { return this.write<Game>('post', '/api/v1/games', value); }
-  updateGame(id: string, value: GameInput): Observable<Game> { return this.write<Game>('put', `/api/v1/games/${id}`, value); }
-  deleteGame(id: string): Observable<void> { return this.write<void>('delete', `/api/v1/games/${id}`); }
+  getGame(id: string): Observable<Game> {
+    const game = this.library().find(game => game.id === id);
+    return game ? of(game) : this.http.get<Game>(`/api/v1/games/${id}`);
+  }
 
-  listPlays(gameId: string): Observable<PlayEntry[]> { return this.http.get<PlayEntry[]>(`/api/v1/games/${gameId}/plays`); }
-  getPlay(gameId: string, playId: string): Observable<PlayEntry> { return this.http.get<PlayEntry>(`/api/v1/games/${gameId}/plays/${playId}`); }
-  createPlay(gameId: string, value: PlayInput): Observable<PlayEntry> { return this.write<PlayEntry>('post', `/api/v1/games/${gameId}/plays`, value); }
-  updatePlay(gameId: string, playId: string, value: PlayInput): Observable<PlayEntry> { return this.write<PlayEntry>('put', `/api/v1/games/${gameId}/plays/${playId}`, value); }
-  deletePlay(gameId: string, playId: string): Observable<void> { return this.write<void>('delete', `/api/v1/games/${gameId}/plays/${playId}`); }
+  createGame(value: GameInput): Observable<Game> {
+    return this.write<Game>('post', '/api/v1/games', value).pipe(
+      tap(game => this.library.update(games => [...games, toLibraryGame({ ...game, plays: [] })]))
+    );
+  }
+
+  updateGame(id: string, value: GameInput): Observable<Game> {
+    return this.write<Game>('put', `/api/v1/games/${id}`, value).pipe(
+      tap(game => this.library.update(games => games.map(existing => existing.id === id
+        ? toLibraryGame({ ...game, plays: existing.plays }) : existing)))
+    );
+  }
+
+  deleteGame(id: string): Observable<void> {
+    return this.write<void>('delete', `/api/v1/games/${id}`).pipe(
+      tap(() => this.library.update(games => games.filter(game => game.id !== id)))
+    );
+  }
+
+  listPlays(gameId: string): Observable<PlayEntry[]> {
+    const game = this.library().find(game => game.id === gameId);
+    return game ? of(game.plays) : this.http.get<PlayEntry[]>(`/api/v1/games/${gameId}/plays`);
+  }
+
+  getPlay(gameId: string, playId: string): Observable<PlayEntry> {
+    const play = this.library().find(game => game.id === gameId)?.plays.find(play => play.id === playId);
+    return play ? of(play) : this.http.get<PlayEntry>(`/api/v1/games/${gameId}/plays/${playId}`);
+  }
+
+  createPlay(gameId: string, value: PlayInput): Observable<PlayEntry> {
+    return this.write<PlayEntry>('post', `/api/v1/games/${gameId}/plays`, value).pipe(tap(play => this.rememberPlay(play)));
+  }
+
+  updatePlay(gameId: string, playId: string, value: PlayInput): Observable<PlayEntry> {
+    return this.write<PlayEntry>('put', `/api/v1/games/${gameId}/plays/${playId}`, value).pipe(tap(play => this.rememberPlay(play)));
+  }
+
+  deletePlay(gameId: string, playId: string): Observable<void> {
+    return this.write<void>('delete', `/api/v1/games/${gameId}/plays/${playId}`).pipe(
+      tap(() => this.updateLibraryPlays(gameId, plays => plays.filter(play => play.id !== playId)))
+    );
+  }
+
+  rememberPlay(play: PlayEntry): void {
+    this.updateLibraryPlays(play.gameId, plays => [...plays.filter(existing => existing.id !== play.id), play]
+      .sort((a, b) => (b.completionDate || '').localeCompare(a.completionDate || '') || a.id.localeCompare(b.id)));
+  }
+
+  private updateLibraryPlays(gameId: string, update: (plays: PlayEntry[]) => PlayEntry[]): void {
+    this.library.update(games => games.map(game => game.id === gameId
+      ? toLibraryGame({ ...game, plays: update(game.plays) }) : game));
+  }
 
   listTimeEntries(gameId: string, playId: string): Observable<TimeEntry[]> { return this.http.get<TimeEntry[]>(`/api/v1/games/${gameId}/plays/${playId}/time-entries`); }
   saveTimeEntry(gameId: string, playId: string, value: TimeEntryInput, id?: string): Observable<TimeEntry> {
@@ -72,6 +121,7 @@ export class ApiService {
     return this.http.post('/logout', null, { headers: this.csrfHeaders(), responseType: 'text' }).pipe(
       tap(() => {
         this.library.set([]);
+        this.libraryLoaded = false;
         this.session.update(session => session ? { ...session, authenticated: false, csrfToken: null } : session);
       })
     );

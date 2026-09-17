@@ -2,10 +2,10 @@ import { PortalIcon } from '../shared/portal-icon';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
+import { debounceTime, Subject } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { formatDuration, libraryStatusLabels } from '../core/formatters';
-import { Game, LibraryGame, LibraryStatus } from '../core/models';
+import { LibraryGame, LibraryStatus } from '../core/models';
 import { GameEditor } from './game-editor';
 import { LibrarySort, LibraryToolbar, ViewMode } from './library-toolbar';
 
@@ -90,7 +90,7 @@ export class LibraryPage implements OnInit {
       this.sort.set((params.get('sort') as LibrarySort) || 'title-asc');
       this.editing.set(params.has('add'));
     });
-    this.searches.pipe(debounceTime(250), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+    this.searches.pipe(debounceTime(250), takeUntilDestroyed(this.destroyRef))
       .subscribe(value => this.setQuery('q', value));
     if (!this.api.library().length) this.load();
   }
@@ -109,7 +109,7 @@ export class LibraryPage implements OnInit {
   setQuery(key: string, value: string): void { void this.router.navigate([], { relativeTo: this.route, queryParams: { [key]: value || null }, queryParamsHandling: 'merge' }); }
   clearFilters(): void { void this.router.navigate([], { relativeTo: this.route, queryParams: { q: null, status: null } }); }
   closeEditor(): void { this.editing.set(false); this.setQuery('add', ''); }
-  gameSaved(): void { this.closeEditor(); this.load(); }
+  gameSaved(): void { this.closeEditor(); }
   returnParams(): Record<string, string> { return { return: this.router.url }; }
 
   private filteredGames(games: LibraryGame[]): LibraryGame[] {

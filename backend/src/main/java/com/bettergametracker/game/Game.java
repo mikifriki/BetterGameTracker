@@ -135,8 +135,9 @@ public class Game {
     }
 
     public void addPlayEntry(PlayEntry playEntry) {
+        boolean unattached = playEntry.getGame() == null;
         playEntry.assignGame(this);
-        if (!playEntries.contains(playEntry)) {
+        if (unattached || !playEntries.contains(playEntry)) {
             playEntries.add(playEntry);
         }
     }

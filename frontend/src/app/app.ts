@@ -19,8 +19,13 @@ export class App implements OnInit {
   readonly error = signal('');
   private readonly destroyRef = inject(DestroyRef);
 
-  ngOnInit(): void {
-    this.api.loadSession().pipe(
+  ngOnInit(): void { this.load(); }
+
+  load(): void {
+    this.loading.set(true);
+    this.error.set('');
+    const session = this.api.session();
+    (session ? of(session) : this.api.loadSession()).pipe(
       switchMap(session => session.hosted && !session.authenticated ? of([]) : this.api.loadLibrary()),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({

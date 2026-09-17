@@ -7,6 +7,12 @@
       <p class="eyebrow">Loading</p>
       <h1>Opening your library…</h1>
     </main>
+  } @else if (error()) {
+    <main id="main-content" class="standalone-state">
+      <h1>Unable to open your library</h1>
+      <p class="notice error" role="alert">{{ error() }}</p>
+      <button class="primary" type="button" (click)="load()">Retry</button>
+    </main>
   } @else if (api.session()?.hosted && !api.session()?.authenticated) {
     <main id="main-content" class="login-panel">
       <p class="eyebrow">Personal game tracking</p>
@@ -18,9 +24,6 @@
     <div class="page-body">
       <bgt-library-navigation />
       <main id="main-content" tabindex="-1">
-        @if (error()) {
-          <div class="notice error" role="alert">{{ error() }}</div>
-        }
         <router-outlet />
       </main>
     </div>

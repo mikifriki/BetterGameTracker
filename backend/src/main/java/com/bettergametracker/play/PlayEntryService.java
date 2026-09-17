@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.bettergametracker.game.Game;
 import com.bettergametracker.game.GameService;
+import jakarta.persistence.Persistence;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +67,9 @@ public class PlayEntryService {
     @Transactional
     public void delete(UUID gameId, UUID playEntryId) {
         PlayEntry playEntry = get(gameId, playEntryId);
-        playEntry.getGame().removePlayEntry(playEntry);
+        if (Persistence.getPersistenceUtil().isLoaded(playEntry.getGame(), "playEntries")) {
+            playEntry.getGame().removePlayEntry(playEntry);
+        }
+        playEntryRepository.delete(playEntry);
     }
 }

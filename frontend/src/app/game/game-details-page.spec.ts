@@ -1,3 +1,4 @@
+import { BehaviorSubject } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -9,10 +10,12 @@ describe('game action errors', () => {
   let fixture: ComponentFixture<GameDetailsPage>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(() => {
+    params = new BehaviorSubject(convertToParamMap({ gameId: 'game' }));
     TestBed.configureTestingModule({ imports: [GameDetailsPage], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ gameId: 'game' }), queryParamMap: convertToParamMap({}) } } }] });
+      { provide: ActivatedRoute, useValue: { paramMap: params, snapshot: { paramMap: convertToParamMap({ gameId: 'game' }), queryParamMap: convertToParamMap({}) } } }] });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(GameDetailsPage);
     element = fixture.nativeElement;
@@ -23,6 +26,33 @@ describe('game action errors', () => {
     vi.stubGlobal('confirm', () => true);
   });
   afterEach(() => { http.verify(); vi.unstubAllGlobals(); });
+
+  it('cancels stale detail requests when route parameters change', () => {
+    params.next(convertToParamMap({ gameId: 'second' }));
+    const game = http.expectOne('/api/v1/games/second');
+    const plays = http.expectOne('/api/v1/games/second/plays');
+    params.next(convertToParamMap({ gameId: 'third' }));
+    expect(game.cancelled).toBe(true);
+    expect(plays.cancelled).toBe(true);
+    http.expectOne('/api/v1/games/third').flush({ id: 'third', gameTitle: 'Third game' });
+    http.expectOne('/api/v1/games/third/plays').flush([]);
+    fixture.detectChanges();
+    expect(element.querySelector('h1')?.textContent).toBe('Third game');
+  });
+
+  it('removes a playthrough without reloading the game or library', () => {
+    fixture.componentInstance.deletePlay({ id: 'play' } as Parameters<GameDetailsPage['deletePlay']>[0]);
+    http.expectOne('/api/v1/games/game/plays/play').flush(null);
+    expect(fixture.componentInstance.plays()).toEqual([]);
+  });
+
+  it('stops requesting the cover after it is deleted', () => {
+    fixture.componentInstance.removeCover();
+    fixture.componentInstance.removeCover();
+    http.expectOne('/api/v1/games/game/cover').flush(null);
+    fixture.detectChanges();
+    expect(element.querySelector('.detail-cover img')).toBeNull();
+  });
 
   it('keeps the game visible after an upload failure and allows the same file to be retried', () => {
     const input = element.querySelector<HTMLInputElement>('input[type="file"]')!;

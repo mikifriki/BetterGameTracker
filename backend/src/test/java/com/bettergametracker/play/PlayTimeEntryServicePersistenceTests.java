@@ -94,6 +94,7 @@ class PlayTimeEntryServicePersistenceTests {
                 .containsExactlyInAnyOrder(first.getId(), second.getId());
 
         PlayEntry parent = playEntryService.get(game.getId(), play.getId());
+        assertThat(parent.getTimeEntries()).hasSize(2);
         timeEntryService.delete(game.getId(), play.getId(), first.getId());
         assertThat(parent.getTimeEntries()).extracting(PlayTimeEntry::getId).containsExactly(second.getId());
         entityManager.flush();

@@ -53,6 +53,29 @@ describe('time entry editor', () => {
     request.flush({ id: 'entry', playId: 'play', ...request.request.body });
   });
 
+  it('prevents duplicate submissions while a save is pending', () => {
+    const fixture = TestBed.createComponent(TimeEntryEditor);
+    fixture.componentRef.setInput('gameId', 'game');
+    fixture.componentRef.setInput('playId', 'play');
+    fixture.detectChanges();
+    fixture.componentInstance.form.patchValue({ minutes: 1 });
+    fixture.componentInstance.save();
+    fixture.componentInstance.save();
+    const request = http.expectOne('/api/v1/games/game/plays/play/time-entries');
+    request.flush({ id: 'entry', playId: 'play', ...request.request.body });
+  });
+
+  it.each([{ hours: 0.5, minutes: 0 }, { hours: 0, minutes: 1.5 }, { hours: 35791394, minutes: 8 }])(
+    'rejects invalid duration %o before sending a request', duration => {
+      const fixture = TestBed.createComponent(TimeEntryEditor);
+      fixture.componentRef.setInput('gameId', 'game');
+      fixture.componentRef.setInput('playId', 'play');
+      fixture.detectChanges();
+      fixture.componentInstance.form.patchValue(duration);
+      fixture.componentInstance.save();
+      expect(fixture.componentInstance.form.invalid).toBe(true);
+    });
+
   it('preserves an existing date and saves an hours-only duration', () => {
     const fixture = TestBed.createComponent(TimeEntryEditor);
     fixture.componentRef.setInput('gameId', 'game');

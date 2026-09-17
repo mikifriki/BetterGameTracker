@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.bettergametracker.play.PlayEntryService;
@@ -245,6 +246,77 @@ class TypedMetadataIntegrationTests {
                 if (size == 1) firstCount = statistics.getPrepareStatementCount();
                 assertThat(statistics.getPrepareStatementCount()).isEqualTo(firstCount).isLessThanOrEqualTo(2);
                 assertThat(statistics.getCollectionFetchCount()).isZero();
+            }
+        } finally {
+            statistics.setStatisticsEnabled(previouslyEnabled);
+            mvc.perform(delete(game)).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
+    void rejectsIncorrectJsonTypesWithoutChangingStoredValues() throws Exception {
+        String game = create("/api/v1/games", "{\"gameTitle\":\"Strict types\",\"physicalCopy\":true,\"metaRating\":9.5}");
+        String play = create(game + "/plays", "{\"coop\":false,\"timeToBeatMinutes\":30}");
+        String review = create(play + "/reviews", "{\"reviewTitle\":\"Review\",\"rating\":8}");
+        String time = create(play + "/time-entries", "{\"date\":\"2026-09-09\",\"durationMinutes\":30,\"notes\":\"Session\"}");
+        try {
+            var invalidValues = Map.of(
+                    game, Map.of("gameTitle", List.of("42", "1.5", "true"),
+                            "physicalCopy", List.of("2", "\"false\"", "\"\""),
+                            "metaRating", List.of("\"9.5\"", "\"\"")),
+                    play, Map.of("coop", List.of("0", "\"true\""),
+                            "timeToBeatMinutes", List.of("\"30\"", "\"\"")),
+                    review, Map.of("reviewTitle", List.of("42"), "rating", List.of("\"8\"")),
+                    time, Map.of("durationMinutes", List.of("\"30\""), "notes", List.of("false")));
+            for (var resource : invalidValues.entrySet()) {
+                String readPath = resource.getKey().equals(time) ? collection(time) : resource.getKey();
+                String original = mvc.perform(get(readPath)).andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString();
+                for (var field : resource.getValue().entrySet()) {
+                    for (String value : field.getValue()) {
+                        ObjectNode body = (ObjectNode) (resource.getKey().equals(time)
+                                ? mapper.readTree(original).get(0) : mapper.readTree(original));
+                        body.set(field.getKey(), mapper.readTree(value));
+                        for (String method : List.of("POST", "PUT")) {
+                            mvc.perform(request(HttpMethod.valueOf(method), method.equals("POST")
+                                            ? collection(resource.getKey()) : resource.getKey())
+                                            .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                                    .andExpect(status().isBadRequest())
+                                    .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+                        }
+                    }
+                }
+                mvc.perform(get(readPath)).andExpect(status().isOk()).andExpect(content().json(original));
+            }
+        } finally {
+            mvc.perform(delete(game)).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
+    void childWritesDoNotLoadSiblingRecords() throws Exception {
+        String game = create("/api/v1/games", "{\"gameTitle\":\"Child write queries\"}");
+        String play = create(game + "/plays", "{}");
+        var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean previouslyEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            var collections = Map.of(game + "/plays", "{}", play + "/reviews", "{}",
+                    play + "/time-entries", "{\"date\":\"2026-09-09\",\"durationMinutes\":30}");
+            for (var collection : collections.entrySet()) {
+                for (int i = 0; i < 8; i++) {
+                    create(collection.getKey(), collection.getValue());
+                }
+                statistics.clear();
+                String child = create(collection.getKey(), collection.getValue());
+                assertThat(statistics.getEntityLoadCount()).isLessThanOrEqualTo(2);
+                assertThat(statistics.getCollectionFetchCount()).isZero();
+
+                statistics.clear();
+                mvc.perform(delete(child)).andExpect(status().isNoContent());
+                assertThat(statistics.getEntityLoadCount()).isLessThanOrEqualTo(3);
+                mvc.perform(get(collection.getKey())).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.length()").value(collection.getKey().equals(game + "/plays") ? 9 : 8));
             }
         } finally {
             statistics.setStatisticsEnabled(previouslyEnabled);

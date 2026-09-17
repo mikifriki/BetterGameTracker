@@ -27,7 +27,7 @@ export function deriveStatus(statuses: (CompletionStatus | null)[]): LibraryStat
   return 'backlog';
 }
 
-export function toLibraryGame<T extends { plays: LibraryGame['plays'] }>(game: Omit<LibraryGame, 'status' | 'totalMinutes'> & T): LibraryGame {
+export function toLibraryGame(game: Omit<LibraryGame, 'status' | 'totalMinutes'>): LibraryGame {
   return {
     ...game,
     status: deriveStatus(game.plays.map(play => play.completionStatus)),

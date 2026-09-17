@@ -51,3 +51,59 @@ describe('API logout', () => {
     request.flush(null);
   });
 });
+
+describe('library request reuse', () => {
+  let api: ApiService;
+  let http: HttpTestingController;
+  const game = { id: 'game', gameTitle: 'Game', description: null, releasePlatform: null,
+    releaseDate: null, developer: null, metaRating: null, userRating: null, physicalCopy: null };
+  const play = { id: 'play', gameId: 'game', completionStatus: 'IN_PROGRESS' as const,
+    calculatedTimeMinutes: 60, completionDate: null };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    api = TestBed.inject(ApiService);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => http.verify());
+
+  it('does not fetch an already loaded empty library again', () => {
+    api.loadLibrary().subscribe();
+    http.expectOne('/api/v1/games').flush([]);
+    api.loadLibrary().subscribe(games => expect(games).toEqual([]));
+  });
+
+  it('reuses the initial game and play requests when opening details', () => {
+    api.loadLibrary().subscribe();
+    http.expectOne('/api/v1/games').flush([game]);
+    http.expectOne('/api/v1/games/game/plays').flush([play]);
+    api.getGame('game').subscribe(value => expect(value.gameTitle).toBe('Game'));
+    api.listPlays('game').subscribe(value => expect(value).toEqual([play]));
+    api.getPlay('game', 'play').subscribe(value => expect(value).toEqual(play));
+    api.loadLibrary().subscribe();
+  });
+
+  it('updates cached records and statistics from write responses without reloads', () => {
+    api.loadLibrary().subscribe();
+    http.expectOne('/api/v1/games').flush([game]);
+    http.expectOne('/api/v1/games/game/plays').flush([play]);
+    api.updateGame('game', { ...game, gameTitle: 'Renamed' }).subscribe();
+    http.expectOne('/api/v1/games/game').flush({ ...game, gameTitle: 'Renamed' });
+    expect(api.library()[0].gameTitle).toBe('Renamed');
+    expect(api.stats().totalMinutes).toBe(60);
+    api.deletePlay('game', 'play').subscribe();
+    http.expectOne('/api/v1/games/game/plays/play').flush(null);
+    expect(api.stats().totalMinutes).toBe(0);
+    expect(api.stats().backlog).toBe(1);
+    api.deleteGame('game').subscribe();
+    http.expectOne('/api/v1/games/game').flush(null);
+    api.loadLibrary().subscribe(games => expect(games).toEqual([]));
+  });
+
+  it('allows retry after a failed library load', () => {
+    api.loadLibrary().subscribe({ error: () => {} });
+    http.expectOne('/api/v1/games').flush({}, { status: 503, statusText: 'Unavailable' });
+    api.loadLibrary().subscribe();
+    http.expectOne('/api/v1/games').flush([]);
+  });
+});

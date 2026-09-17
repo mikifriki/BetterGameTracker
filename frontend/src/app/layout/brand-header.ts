@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ApiService } from '../core/api.service';
 
@@ -31,6 +31,7 @@ import { ApiService } from '../core/api.service';
 })
 export class BrandHeader {
   readonly api = inject(ApiService);
+  private readonly router = inject(Router);
 
   readonly signingOut = signal(false);
   readonly error = signal('');
@@ -40,7 +41,7 @@ export class BrandHeader {
     this.signingOut.set(true);
     this.error.set('');
     this.api.signOut().pipe(finalize(() => this.signingOut.set(false))).subscribe({
-      next: () => location.assign('/'),
+      next: () => { void this.router.navigateByUrl('/library'); },
       error: error => this.error.set(this.api.errorMessage(error))
     });
   }

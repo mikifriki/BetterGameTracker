@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AfterViewInit, Component, DestroyRef, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ApiService } from '../core/api.service';
@@ -8,11 +9,11 @@ import { PlayEntry, PlayInput } from '../core/models';
   selector: 'bgt-play-editor',
   imports: [ReactiveFormsModule],
   template: `
-    <dialog #dialog (cancel)="closed.emit()" (close)="closed.emit()" aria-labelledby="play-editor-title">
+    <dialog #dialog (cancel)="saving() ? $event.preventDefault() : closed.emit()" (close)="closed.emit()" aria-labelledby="play-editor-title">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="dialog-heading">
           <div><p class="eyebrow">Tracking record</p><h2 id="play-editor-title">{{ play() ? 'Edit playthrough' : 'Add playthrough' }}</h2></div>
-          <button class="icon-button" type="button" (click)="dialog.close()" aria-label="Close">×</button>
+          <button class="icon-button" type="button" [disabled]="saving()" (click)="dialog.close()" aria-label="Close">×</button>
         </div>
         <div class="form-grid">
           <label>Status
@@ -28,8 +29,9 @@ import { PlayEntry, PlayInput } from '../core/models';
             <select formControlName="coop"><option value="">Not specified</option><option value="true">Yes</option><option value="false">No</option></select>
           </label>
         </div>
+        @if (form.touched && form.invalid) { <p class="form-error" role="alert">Check the rating and duration. Use whole hours and minutes.</p> }
         @if (error()) { <p class="form-error" role="alert">{{ error() }}</p> }
-        <div class="dialog-actions"><button type="button" class="secondary" (click)="dialog.close()">Cancel</button><button class="primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save playthrough' }}</button></div>
+        <div class="dialog-actions"><button type="button" class="secondary" [disabled]="saving()" (click)="dialog.close()">Cancel</button><button class="primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save playthrough' }}</button></div>
       </form>
     </dialog>
   `
@@ -41,6 +43,7 @@ export class PlayEditor implements AfterViewInit {
   readonly closed = output<void>();
   readonly dialogRef = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
   readonly saving = signal(false);
   readonly error = signal('');
   private readonly defaultStartDate = (() => {
@@ -49,7 +52,7 @@ export class PlayEditor implements AfterViewInit {
   })();
   readonly form = new FormGroup({
     completionStatus: new FormControl(''),
-    playthroughRating: new FormControl<number | null>(null, [Validators.min(0), Validators.max(10)]),
+    playthroughRating: new FormControl<number | null>(null, [Validators.min(0), Validators.max(10), Validators.pattern(/^\d+(\.\d)?$/)]),
     startDate: new FormControl<string | null>(this.defaultStartDate),
     completionDate: new FormControl<string | null>(null),
     platformPlayedOn: new FormControl<string | null>(null, Validators.maxLength(255)),
@@ -57,7 +60,12 @@ export class PlayEditor implements AfterViewInit {
     minutes: new FormControl<number | null>(null, [Validators.min(0), Validators.max(59)]),
     location: new FormControl<string | null>(null, Validators.maxLength(255)),
     coop: new FormControl('')
-  });
+  }, { validators: control => {
+    const { hours, minutes } = control.value;
+    const total = (hours ?? 0) * 60 + (minutes ?? 0);
+    return Number.isInteger(hours ?? 0) && Number.isInteger(minutes ?? 0) && total <= 2147483647
+      ? null : { duration: true };
+  } });
 
   ngAfterViewInit(): void {
     const play = this.play();
@@ -74,6 +82,7 @@ export class PlayEditor implements AfterViewInit {
   get dialog(): HTMLDialogElement { return this.dialogRef().nativeElement; }
 
   save(): void {
+    if (this.saving()) return;
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();
     const hasDuration = raw.hours != null || raw.minutes != null;
@@ -87,11 +96,12 @@ export class PlayEditor implements AfterViewInit {
       location: raw.location || null,
       coop: raw.coop === '' ? null : raw.coop === 'true'
     };
+    this.error.set('');
     this.saving.set(true);
     const play = this.play();
     const request = play ? this.api.updatePlay(this.gameId(), play.id, value) : this.api.createPlay(this.gameId(), value);
-    request.pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: saved => { this.saved.emit(saved); this.dialog.close(); },
+    request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.saving.set(false))).subscribe({
+      next: saved => { this.dialog.close(); this.saved.emit(saved); },
       error: error => this.error.set(this.api.errorMessage(error))
     });
   }

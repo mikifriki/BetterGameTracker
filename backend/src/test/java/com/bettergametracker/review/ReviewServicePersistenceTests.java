@@ -99,6 +99,7 @@ class ReviewServicePersistenceTests {
                 .containsExactlyInAnyOrder(first.getId(), second.getId());
 
         PlayEntry parent = playEntryService.get(game.getId(), play.getId());
+        assertThat(parent.getReviews()).hasSize(2);
         reviewService.delete(game.getId(), play.getId(), first.getId());
         assertThat(parent.getReviews()).extracting(Review::getId).containsExactly(second.getId());
         entityManager.flush();

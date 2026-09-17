@@ -146,8 +146,9 @@ public class PlayEntry {
     }
 
     public void addReview(Review review) {
+        boolean unattached = review.getPlayEntry() == null;
         review.assignPlayEntry(this);
-        if (!reviews.contains(review)) {
+        if (unattached || !reviews.contains(review)) {
             reviews.add(review);
         }
     }
@@ -163,8 +164,9 @@ public class PlayEntry {
     }
 
     public void addTimeEntry(PlayTimeEntry timeEntry) {
+        boolean unattached = timeEntry.getPlayEntry() == null;
         timeEntry.assignPlayEntry(this);
-        if (!timeEntries.contains(timeEntry)) {
+        if (unattached || !timeEntries.contains(timeEntry)) {
             timeEntries.add(timeEntry);
         }
     }

@@ -3,6 +3,7 @@ package com.bettergametracker.play;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.persistence.Persistence;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +49,9 @@ public class PlayTimeEntryService {
     @Transactional
     public void delete(UUID gameId, UUID playEntryId, UUID timeEntryId) {
         PlayTimeEntry timeEntry = get(gameId, playEntryId, timeEntryId);
-        timeEntry.getPlayEntry().removeTimeEntry(timeEntry);
+        if (Persistence.getPersistenceUtil().isLoaded(timeEntry.getPlayEntry(), "timeEntries")) {
+            timeEntry.getPlayEntry().removeTimeEntry(timeEntry);
+        }
+        timeEntryRepository.delete(timeEntry);
     }
 }

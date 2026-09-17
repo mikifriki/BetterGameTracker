@@ -43,6 +43,9 @@ Only `gameTitle` is required for games. Game description allows 1,000 characters
 review text allows 5,000. Other text fields allow 255 characters. Overlength
 requests return 400 in both deployment modes.
 
+JSON scalar types are strict: strings, booleans, and numbers must use their declared
+JSON types. For example, `physicalCopy: 2` and `durationMinutes: "30"` return 400.
+
 Game `releaseDate`, playthrough `startDate` and `completionDate`, and `reviewDate`
 are optional strict ISO dates (`YYYY-MM-DD`). Invalid dates return 400. On playthrough
 creation, an omitted or null `startDate` defaults to the server's current date. PUT

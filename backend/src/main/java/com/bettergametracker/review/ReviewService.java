@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.bettergametracker.play.PlayEntry;
 import com.bettergametracker.play.PlayEntryService;
+import jakarta.persistence.Persistence;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +52,9 @@ public class ReviewService {
     @Transactional
     public void delete(UUID gameId, UUID playEntryId, UUID reviewId) {
         Review review = get(gameId, playEntryId, reviewId);
-        review.getPlayEntry().removeReview(review);
+        if (Persistence.getPersistenceUtil().isLoaded(review.getPlayEntry(), "reviews")) {
+            review.getPlayEntry().removeReview(review);
+        }
+        reviewRepository.delete(review);
     }
 }
