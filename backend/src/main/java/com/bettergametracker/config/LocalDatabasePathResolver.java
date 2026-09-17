@@ -4,10 +4,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.CodeSource;
 
 import com.bettergametracker.BetterGameTrackerApplication;
 import org.springframework.boot.system.ApplicationHome;
 import org.springframework.core.NativeDetector;
+import org.springframework.util.ResourceUtils;
 
 public final class LocalDatabasePathResolver {
 
@@ -17,6 +19,13 @@ public final class LocalDatabasePathResolver {
         }
         boolean nativeRuntime = NativeDetector.inNativeImage();
         File source = nativeRuntime ? null : new ApplicationHome(BetterGameTrackerApplication.class).getSource();
+        // ApplicationHome deliberately hides the source when launched by JUnit.
+        if (!nativeRuntime && source == null) {
+            CodeSource codeSource = BetterGameTrackerApplication.class.getProtectionDomain().getCodeSource();
+            if (codeSource != null && "file".equals(codeSource.getLocation().getProtocol())) {
+                source = ResourceUtils.getFile(codeSource.getLocation());
+            }
+        }
         Path location = nativeRuntime
                 ? ProcessHandle.current().info().command().map(Path::of).orElse(null)
                 : source == null ? null : source.toPath();

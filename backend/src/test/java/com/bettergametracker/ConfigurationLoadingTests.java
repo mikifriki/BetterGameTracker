@@ -100,6 +100,20 @@ class ConfigurationLoadingTests {
     }
 
     @Test
+    void developmentLaunchDiscoversLocalStorageUnderJUnit() {
+        var environment = new MockEnvironment();
+        environment.setActiveProfiles("local");
+
+        new LocalDatabasePathEnvironmentPostProcessor().postProcessEnvironment(environment, null);
+
+        Path storage = Path.of("").toAbsolutePath().resolve("db");
+        assertThat(environment.getProperty("better-game-tracker.local.database-path"))
+                .isEqualTo(storage.resolve("better-game-tracker.db").toString());
+        assertThat(environment.getProperty("better-game-tracker.local.cover-directory"))
+                .isEqualTo(storage.resolve("covers").toString());
+    }
+
+    @Test
     void resolvesPackagedAndDevelopmentLocations(@TempDir Path directory) throws IOException {
         var resolver = new LocalDatabasePathResolver();
         Path jar = Files.createFile(directory.resolve("Mängud app.jar"));
