@@ -2,7 +2,6 @@ package com.bettergametracker.config;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.boot.SpringApplication;
@@ -29,17 +28,15 @@ public final class LocalDatabasePathEnvironmentPostProcessor implements Environm
         }
 
         try {
-            Map<String, String> processEnvironment = new HashMap<>(System.getenv());
             String configuredPath = environment.getProperty("BETTER_GAME_TRACKER_DATABASE_PATH");
-            if (configuredPath != null) {
-                processEnvironment.put("BETTER_GAME_TRACKER_DATABASE_PATH", configuredPath);
-            }
-            Path databasePath = new LocalDatabasePathResolver().resolve(
-                    processEnvironment, System.getProperty("os.name"), Path.of(System.getProperty("user.home")));
-            environment.getPropertySources().addFirst(
-                    new MapPropertySource("localDatabasePath", Map.of(PROPERTY_NAME, databasePath.toString())));
+            Path databasePath = new LocalDatabasePathResolver().resolve(configuredPath);
+            Path coverDirectory = configuredPath == null || configuredPath.isBlank()
+                    ? databasePath.getParent().resolve("covers") : Path.of(databasePath + ".covers");
+            environment.getPropertySources().addFirst(new MapPropertySource("localDatabasePath", Map.of(
+                    PROPERTY_NAME, databasePath.toString(),
+                    "better-game-tracker.local.cover-directory", coverDirectory.toString())));
         } catch (IOException exception) {
-            throw new IllegalStateException("Could not create the local BetterGameTracker data directory", exception);
+            throw new IllegalStateException("Could not initialize local storage: " + exception.getMessage(), exception);
         }
     }
 

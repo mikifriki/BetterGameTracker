@@ -19,4 +19,4 @@ server:
 
 better-game-tracker:
   open-browser: ${BETTER_GAME_TRACKER_OPEN_BROWSER:true}
-  cover-directory: ${BETTER_GAME_TRACKER_COVER_DIRECTORY:${better-game-tracker.local.database-path}.covers}
+  cover-directory: ${BETTER_GAME_TRACKER_COVER_DIRECTORY:${better-game-tracker.local.cover-directory}}

@@ -1,6 +1,7 @@
 .gradle/
 /gradle.properties
 build/
+/db/
 *.db
 *.db-shm
 *.db-wal

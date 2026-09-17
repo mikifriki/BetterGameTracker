@@ -1,20 +1,25 @@
 package com.bettergametracker;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
 import com.bettergametracker.config.LocalDatabasePathResolver;
+import com.bettergametracker.config.LocalDatabasePathEnvironmentPostProcessor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.mock.env.MockEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConfigurationLoadingTests {
 
@@ -77,26 +82,91 @@ class ConfigurationLoadingTests {
     }
 
     @Test
-    void localDatabaseResolverUsesMacApplicationSupportAndCreatesItsDirectory(@TempDir Path temporaryDirectory)
-            throws IOException {
-        Path userHome = temporaryDirectory.resolve("user-home");
-
-        Path databasePath = new LocalDatabasePathResolver().resolve(Map.of(), "Mac OS X", userHome);
-
-        assertThat(databasePath)
-                .isEqualTo(userHome.resolve("Library/Application Support/BetterGameTracker/better-game-tracker.db"));
-        assertThat(databasePath.getParent()).isDirectory();
+    void defaultLayoutHandlesBlankOverridesAndExistingDirectories(@TempDir Path directory) throws IOException {
+        Path installation = directory.resolve("Mängud with spaces");
+        var resolver = new LocalDatabasePathResolver();
+        Path expected = installation.resolve("db/better-game-tracker.db");
+        assertThat(resolver.resolve(null, installation)).isEqualTo(expected);
+        assertThat(resolver.resolve("  ", installation)).isEqualTo(expected);
+        assertThat(expected.getParent()).isDirectory();
     }
 
     @Test
-    void localDatabaseResolverHonorsConfiguredDatabasePath(@TempDir Path temporaryDirectory) throws IOException {
-        Path configuredPath = temporaryDirectory.resolve("custom/data.db");
+    void databaseOverrideBypassesLocationDiscoveryAndKeepsRelativePaths(@TempDir Path directory) throws IOException {
+        Path configured = directory.resolve("custom/data.db");
+        Path relative = Path.of("").toAbsolutePath().relativize(configured);
+        assertThat(new LocalDatabasePathResolver().resolve(relative.toString(), null)).isEqualTo(configured);
+        assertThat(new LocalDatabasePathResolver().resolve(configured.toString())).isEqualTo(configured);
+    }
 
-        Path databasePath = new LocalDatabasePathResolver().resolve(
-                Map.of("BETTER_GAME_TRACKER_DATABASE_PATH", configuredPath.toString()), "Linux", temporaryDirectory);
+    @Test
+    void resolvesPackagedAndDevelopmentLocations(@TempDir Path directory) throws IOException {
+        var resolver = new LocalDatabasePathResolver();
+        Path jar = Files.createFile(directory.resolve("Mängud app.jar"));
+        Path executable = Files.createFile(directory.resolve("BetterGameTracker.exe"));
+        Path classes = directory.resolve("classes");
+        Files.createDirectories(classes.resolve("com/bettergametracker"));
+        Files.createFile(classes.resolve("com/bettergametracker/BetterGameTrackerApplication.class"));
+        Path launch = directory.resolve("launch");
+        assertThat(resolver.applicationDirectory(jar, false, launch)).isEqualTo(directory.toRealPath());
+        assertThat(resolver.applicationDirectory(executable, true, launch)).isEqualTo(directory.toRealPath());
+        assertThat(resolver.applicationDirectory(classes, false, launch)).isEqualTo(launch);
+        assertThatThrownBy(() -> resolver.applicationDirectory(null, false, launch)).isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> resolver.applicationDirectory(null, true, launch)).isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> resolver.applicationDirectory(Path.of("relative.exe"), true, launch))
+                .isInstanceOf(IOException.class).hasMessageContaining("absolute application location");
+        assertThatThrownBy(() -> resolver.applicationDirectory(directory, false, launch))
+                .isInstanceOf(IOException.class).hasMessageContaining("Unrecognized application location");
+        assertThatThrownBy(() -> resolver.applicationDirectory(executable, false, launch))
+                .isInstanceOf(IOException.class);
+    }
 
-        assertThat(databasePath).isEqualTo(configuredPath);
-        assertThat(databasePath.getParent()).isDirectory();
+    @Test
+    void obstructedStorageFailsWithItsPath(@TempDir Path directory) throws IOException {
+        Path obstruction = Files.createFile(directory.resolve("db"));
+        assertThatThrownBy(() -> new LocalDatabasePathResolver().resolve(null, directory))
+                .isInstanceOf(IOException.class).hasMessageContaining(obstruction.toString());
+        var environment = localEnvironment(directory.resolve("db/app.db"));
+        assertThatThrownBy(() -> new LocalDatabasePathEnvironmentPostProcessor().postProcessEnvironment(environment, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining(obstruction.toString());
+    }
+
+    @Test
+    void localPropertiesPreserveDatabaseOverrideAndCoverDefault(@TempDir Path directory) throws IOException {
+        Path database = directory.resolve("custom/app.db");
+        var environment = localEnvironment(database);
+        new LocalDatabasePathEnvironmentPostProcessor().postProcessEnvironment(environment, null);
+        assertThat(environment.getProperty("spring.datasource.url")).isEqualTo("jdbc:sqlite:" + database);
+        assertThat(environment.getProperty("better-game-tracker.cover-directory")).isEqualTo(database + ".covers");
+    }
+
+    @Test
+    void explicitCoverOverridesArePreserved(@TempDir Path directory) throws IOException {
+        Path database = directory.resolve("app.db");
+        for (String property : List.of("BETTER_GAME_TRACKER_COVER_DIRECTORY", "better-game-tracker.cover-directory")) {
+            var environment = localEnvironment(database);
+            Path covers = directory.resolve("Mängud covers");
+            environment.setProperty(property, covers.toString());
+            new LocalDatabasePathEnvironmentPostProcessor().postProcessEnvironment(environment, null);
+            assertThat(environment.getProperty("better-game-tracker.cover-directory")).isEqualTo(covers.toString());
+        }
+    }
+
+    @Test
+    void hostedProcessingDoesNotTouchLocalStorage(@TempDir Path directory) {
+        var environment = new MockEnvironment().withProperty("BETTER_GAME_TRACKER_DATABASE_PATH",
+                directory.resolve("unused/app.db").toString());
+        environment.setActiveProfiles("hosted");
+        new LocalDatabasePathEnvironmentPostProcessor().postProcessEnvironment(environment, null);
+        assertThat(directory.resolve("unused")).doesNotExist();
+        assertThat(environment.getProperty("better-game-tracker.local.database-path")).isNull();
+    }
+
+    private MockEnvironment localEnvironment(Path database) throws IOException {
+        var environment = new MockEnvironment().withProperty("BETTER_GAME_TRACKER_DATABASE_PATH", database.toString());
+        environment.setActiveProfiles("local");
+        environment.getPropertySources().addLast(new MapPropertySource("localYaml", propertiesFrom("application-local.yml")));
+        return environment;
     }
 
     @Test
