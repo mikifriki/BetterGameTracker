@@ -3,6 +3,7 @@ package com.bettergametracker.security;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bettergametracker.api.ApiProblemWriter;
+import com.bettergametracker.config.LocalNetworkConfiguration;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 
@@ -24,10 +25,14 @@ public class SecurityConfiguration {
 
     @Bean
     @Profile("local")
-    SecurityFilterChain localSecurity(HttpSecurity http, ApiProblemWriter problems) throws Exception {
-        return http.addFilterBefore(new LocalRequestFilter(problems), AuthorizationFilter.class)
+    SecurityFilterChain localSecurity(HttpSecurity http, ApiProblemWriter problems,
+            LocalNetworkConfiguration network) throws Exception {
+        return http.addFilterBefore(new LocalRequestFilter(problems, network), CsrfFilter.class)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> { if (!network.isLanEnabled()) csrf.disable(); })
+                .exceptionHandling(errors -> errors.accessDeniedHandler((request, response, exception) ->
+                        problems.write(request, response, HttpStatus.FORBIDDEN,
+                                "Invalid or expired CSRF token. Reload the page and try again.")))
                 .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(
                         "default-src 'self'; img-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'")))
                 .build();

@@ -13,18 +13,26 @@ import org.springframework.stereotype.Component;
 @Profile("local")
 public class LocalBrowserLauncher {
     private final boolean enabled;
+    private final LocalNetworkConfiguration network;
 
-    public LocalBrowserLauncher(@Value("${better-game-tracker.open-browser:false}") boolean enabled) {
+    public LocalBrowserLauncher(@Value("${better-game-tracker.open-browser:false}") boolean enabled,
+            LocalNetworkConfiguration network) {
         this.enabled = enabled;
+        this.network = network;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void openBrowser(ApplicationReadyEvent event) {
+        if (!(event.getApplicationContext() instanceof ServletWebServerApplicationContext context)) {
+            return;
+        }
+        String scheme = context.getEnvironment().getProperty("server.ssl.enabled", Boolean.class, false) ? "https" : "http";
+        String url = scheme + "://" + network.getAddress() + ":" + context.getWebServer().getPort() + "/";
+        LoggerFactory.getLogger(LocalBrowserLauncher.class).info("Open {} in your browser{}", url,
+                network.isLanEnabled() ? " (trusted LAN: all reachable devices have full library access)" : "");
         if (!enabled) {
             return;
         }
-        var context = (ServletWebServerApplicationContext) event.getApplicationContext();
-        String url = "http://127.0.0.1:" + context.getWebServer().getPort() + "/";
         String os = System.getProperty("os.name");
         try {
             if (os.startsWith("Windows")) {

@@ -87,12 +87,24 @@ tasks.named('processResources') {
     from('../frontend/dist/better-game-tracker/browser') { into 'static' }
 }
 
+tasks.register('buildNative', GradleBuild) {
+    group = 'build'
+    description = 'Builds the local native executable using an installed GraalVM JDK 21.'
+    tasks = ['nativeCompile']
+    startParameter.projectProperties = gradle.startParameter.projectProperties + [native: '']
+}
+
 // Native packaging is opt-in; regular JAR builds do not run AOT processing.
 if (providers.gradleProperty('native').isPresent()) {
     apply plugin: 'org.graalvm.buildtools.native'
     graalvmNative {
+        toolchainDetection = true
         binaries {
             main {
+                javaLauncher = javaToolchains.launcherFor {
+                    languageVersion = JavaLanguageVersion.of(21)
+                    nativeImageCapable = true
+                }
                 imageName = 'BetterGameTracker'
                 buildArgs.add('-H:+AddAllCharsets')
             }
