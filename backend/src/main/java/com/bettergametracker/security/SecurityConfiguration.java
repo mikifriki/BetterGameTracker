@@ -47,7 +47,7 @@ public class SecurityConfiguration {
         return http.authorizeHttpRequests(requests -> requests
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/index.html", "/*.js", "/*.css", "/media/**").permitAll()
-                        .requestMatchers("/", "/library", "/stats", "/settings", "/help", "/about", "/games/**",
+                        .requestMatchers("/library", "/stats", "/settings", "/help", "/about", "/games/**",
                                 "/api/v1/session", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(login -> login.userInfoEndpoint(info -> info.oidcUserService(request -> {
