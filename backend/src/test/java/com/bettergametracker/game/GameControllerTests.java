@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@org.springframework.context.annotation.Import(com.bettergametracker.security.SecurityConfiguration.class)
+@org.springframework.context.annotation.Import({com.bettergametracker.security.SecurityConfiguration.class,
+        com.bettergametracker.config.LocalNetworkConfiguration.class})
 @org.springframework.test.context.ActiveProfiles("local")
 @WebMvcTest(GameController.class)
 class GameControllerTests {

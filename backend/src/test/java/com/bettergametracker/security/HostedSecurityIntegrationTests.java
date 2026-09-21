@@ -14,6 +14,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
@@ -93,6 +94,37 @@ class HostedSecurityIntegrationTests {
     }
 
     @Test
+    void startsGoogleLoginWithAnHttpsCallback() throws Exception {
+        mvc.perform(get(java.net.URI.create("https://localhost:443/oauth2/authorization/google")).secure(true))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith(
+                        "https://accounts.google.com/o/oauth2/v2/auth?")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString(
+                        "redirect_uri=https://localhost/login/oauth2/code/google")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("state=")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("nonce=")));
+    }
+
+    @Test
+    void logoutRequiresCsrfAndInvalidatesTheAuthenticatedSession() throws Exception {
+        var result = mvc.perform(get("/api/v1/session").secure(true).with(oidcLogin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true)).andReturn();
+        var session = (MockHttpSession) result.getRequest().getSession(false);
+        var metadata = mapper.readTree(result.getResponse().getContentAsString());
+        mvc.perform(post("/logout").secure(true).session(session)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/session").secure(true).session(session))
+                .andExpect(jsonPath("$.authenticated").value(true));
+        mvc.perform(post("/logout").secure(true).session(session)
+                        .header(metadata.get("csrfHeader").asText(), metadata.get("csrfToken").asText()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/"));
+        assertThat(session.isInvalid()).isTrue();
+        mvc.perform(get("/api/v1/session").secure(true))
+                .andExpect(jsonPath("$.authenticated").value(false));
+        mvc.perform(get("/api/v1/games").secure(true)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void servesBundledFrontendWithoutLogin() throws Exception {
         mvc.perform(get("/index.html")).andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
@@ -131,12 +163,29 @@ class HostedSecurityIntegrationTests {
             mvc.perform(delete(resource).with(oidcLogin().idToken(t -> t.subject(second))).with(csrf()))
                     .andExpect(status().isNotFound());
         }
-        for (String resource : new String[] {game, play, review, play + "/time-entries", game + "/cover"}) {
+        for (String resource : new String[] {game, game + "/plays", play, review,
+                play + "/reviews", play + "/time-entries", game + "/cover"}) {
             mvc.perform(get(resource).with(oidcLogin().idToken(t -> t.subject(second))))
                     .andExpect(status().isNotFound());
         }
         mvc.perform(put(game).with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(GAME)).andExpect(status().isNotFound());
+        for (String resource : new String[] {play, review}) {
+            mvc.perform(put(resource).with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isNotFound());
+        }
+        mvc.perform(put(time).with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date\":\"2026-09-08\",\"durationMinutes\":60}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(play + "/reviews").with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(play + "/time-entries").with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date\":\"2026-09-08\",\"durationMinutes\":60}"))
+                .andExpect(status().isNotFound());
         mvc.perform(post(game + "/plays").with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("""
                         {"playthroughRating":9,"completionDate":"2026-01-01","platformPlayedOn":"PC",
@@ -147,6 +196,10 @@ class HostedSecurityIntegrationTests {
                 .with(oidcLogin().idToken(t -> t.subject(second))).with(csrf())).andExpect(status().isNotFound());
         mvc.perform(get(game).with(oidcLogin().idToken(t -> t.subject(first))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").doesNotExist());
+        mvc.perform(get(play).with(oidcLogin().idToken(t -> t.subject(first))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.calculatedTimeMinutes").value(30));
+        mvc.perform(get(play + "/reviews").with(oidcLogin().idToken(t -> t.subject(first))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
         mvc.perform(delete(game).with(oidcLogin().idToken(t -> t.subject(first))).with(csrf()))
                 .andExpect(status().isNoContent());
     }

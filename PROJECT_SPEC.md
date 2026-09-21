@@ -299,6 +299,29 @@ by default.
 
 An ordinary local installation therefore must not automatically expose BetterGameTracker to other devices on the LAN.
 
+### Optional Trusted LAN Access
+
+Setting `BETTER_GAME_TRACKER_LAN_ENABLED=true` enables trusted LAN access in the
+local profile. Java discovers private IPv4 addresses on active, non-loopback
+interfaces and binds to the address when exactly one is available. If none or
+multiple are available, startup fails with a clear message instead of guessing.
+`BETTER_GAME_TRACKER_LAN_ADDRESS` remains an optional explicit override, takes
+precedence over discovery, and enables LAN access on its own. The application
+binds only to the selected address. With neither setting it binds to loopback;
+`server.address` is not a bypass for local network restrictions.
+
+LAN access shares the same ownerless SQLite library and cover directory. It does
+not create accounts, change ownership, migrate data, or require Google or a
+database server. Everyone who can reach the listener has full library access.
+This is intended for a trusted private network, not public hosting or port forwarding.
+
+LAN requests must use the selected IP address, originate from a private or
+loopback address, and pass the existing Host/Origin checks. Mutations require a
+session CSRF token, supplied through the existing session API. The bundled frontend
+already supports this token. Forwarded headers are disabled in local configuration.
+IPv6 LAN addresses, custom DNS names and reverse-proxy deployment are outside this
+mode's supported configuration. Hosted mode remains the authenticated option.
+
 The exact local port strategy has not yet been finalized.
 
 ### Local Database
@@ -307,23 +330,11 @@ Local installations use SQLite.
 
 The user must not need to install or configure a database server.
 
-The SQLite database should live in the operating system's standard application-data location rather than beside the executable.
-
-Conceptual locations:
-
-Windows:
-
-```text
-%LOCALAPPDATA%/BetterGameTracker/
-```
-
-macOS:
-
-```text
-~/Library/Application Support/BetterGameTracker/
-```
-
-Exact paths may be finalized during implementation.
+The SQLite database defaults to `db/better-game-tracker.db` beside the running
+JAR or native executable, independent of the launch directory. Development
+launches from compiled classes use the working directory. Explicit database and
+cover paths remain supported, and the selected storage directory must be writable.
+Existing data is not automatically relocated or imported.
 
 ### Local Distribution
 
@@ -782,12 +793,12 @@ Local installations are expected to use filesystem-based cover storage.
 Conceptually:
 
 ```text
-Application data
+Application directory/db
 |
-+-- bettergametracker.db
++-- better-game-tracker.db
 |
 +-- covers/
-    +-- <game-id>.<extension>
+    +-- <game-id>.image
 ```
 
 The database may contain metadata or reference information about the cover.
@@ -954,6 +965,7 @@ Implement and design around:
 - SQLite locally
 - PostgreSQL when hosted
 - No local authentication
+- Optional explicitly configured trusted LAN access to the local SQLite library
 - Google OAuth/OIDC for hosted authentication
 - GraalVM native local distribution
 - JAR or container hosted distribution
@@ -979,7 +991,6 @@ Do not implement without an explicit task:
 - Portable backup format
 - Local/cloud synchronization
 - Multiple libraries
-- LAN server mode
 - Automatic updates
 
 Architecture should avoid unnecessarily blocking likely future work, but future requirements must not create unnecessary complexity in current implementations.
