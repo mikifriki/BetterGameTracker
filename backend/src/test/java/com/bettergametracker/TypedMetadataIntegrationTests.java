@@ -57,6 +57,8 @@ class TypedMetadataIntegrationTests {
         registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DIRECTORY.resolve("app.db"));
         registry.add("better-game-tracker.cover-directory", () -> DIRECTORY.resolve("covers").toString());
         if (postgres != null && !postgres.isBlank()) {
+            // Flyway needs separate schema-history and migration connections on PostgreSQL.
+            registry.add("spring.datasource.hikari.maximum-pool-size", () -> "10");
             registry.add("spring.datasource.url", () -> postgres);
             registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
             registry.add("spring.datasource.username", () -> System.getenv("BGT_TEST_POSTGRES_USERNAME"));
@@ -201,10 +203,10 @@ class TypedMetadataIntegrationTests {
             games.add(create("/api/v1/games", "{\"gameTitle\":\"alpha\"}"));
             List<String> expectedGames = new ArrayList<>(games.subList(1, 3));
             expectedGames.sort(Comparator.comparing(TypedMetadataIntegrationTests::id));
-            expectedGames.add(games.get(0));
+            expectedGames.add(games.getFirst());
             assertOrder("/api/v1/games", expectedGames);
 
-            String game = games.get(0);
+            String game = games.getFirst();
             String noDate = create(game + "/plays", "{}");
             String older = create(game + "/plays", "{\"completionDate\":\"2026-01-01\"}");
             String newer = create(game + "/plays", "{\"completionDate\":\"2026-09-09\"}");
