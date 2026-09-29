@@ -15,7 +15,7 @@ spring:
       uuidType: BLOB
 
 server:
-  address: 127.0.0.1
+  address: 0.0.0.0
   forward-headers-strategy: none
   servlet:
     session:
@@ -25,7 +25,4 @@ server:
         same-site: strict
 
 better-game-tracker:
-  lan-enabled: ${BETTER_GAME_TRACKER_LAN_ENABLED:false}
-  lan-address: ${BETTER_GAME_TRACKER_LAN_ADDRESS:}
-  open-browser: ${BETTER_GAME_TRACKER_OPEN_BROWSER:true}
   cover-directory: ${BETTER_GAME_TRACKER_COVER_DIRECTORY:${better-game-tracker.local.cover-directory}}

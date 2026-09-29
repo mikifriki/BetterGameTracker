@@ -25,9 +25,9 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@org.springframework.context.annotation.Import({com.bettergametracker.security.SecurityConfiguration.class,
-        com.bettergametracker.config.LocalNetworkConfiguration.class})
+@org.springframework.context.annotation.Import(com.bettergametracker.security.SecurityConfiguration.class)
 @org.springframework.test.context.ActiveProfiles("local")
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(ReviewController.class)
 class ReviewControllerTests {
 

@@ -35,7 +35,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-    systemProperty 'better-game-tracker.open-browser', 'false'
 }
 
 def frontendDirectory = file('../frontend')
@@ -111,7 +110,7 @@ if (providers.gradleProperty('native').isPresent()) {
         }
     }
     tasks.named('processAot') {
-        args '--spring.profiles.active=local', '--better-game-tracker.open-browser=false',
+        args '--spring.profiles.active=local',
                 "--BETTER_GAME_TRACKER_DATABASE_PATH=${layout.buildDirectory.file('aot-storage/app.db').get().asFile.absolutePath}"
     }
 }

@@ -35,13 +35,13 @@ class ConfigurationLoadingTests {
     }
 
     @Test
-    void localConfigurationUsesPersistentSQLiteAndLoopbackBinding() throws IOException {
+    void localConfigurationUsesPersistentSQLiteAndLanBinding() throws IOException {
         Map<String, Object> properties = propertiesFrom("application-local.yml");
 
         assertThat(propertyValue(properties, "spring.datasource.driver-class-name")).isEqualTo("org.sqlite.JDBC");
         assertThat(propertyValue(properties, "spring.jpa.database-platform"))
                 .isEqualTo("org.hibernate.community.dialect.SQLiteDialect");
-        assertThat(propertyValue(properties, "server.address")).isEqualTo("127.0.0.1");
+        assertThat(propertyValue(properties, "server.address")).isEqualTo("0.0.0.0");
         assertThat(propertyValue(properties, "spring.datasource.url"))
                 .isEqualTo("jdbc:sqlite:${better-game-tracker.local.database-path}");
     }

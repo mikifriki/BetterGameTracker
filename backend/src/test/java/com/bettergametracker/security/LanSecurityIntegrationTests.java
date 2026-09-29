@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = "BETTER_GAME_TRACKER_LAN_ADDRESS=192.168.1.10")
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("local")
 class LanSecurityIntegrationTests {
@@ -92,8 +92,8 @@ class LanSecurityIntegrationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"evil.example", "192.168.1.11"})
-    void rejectsUnconfiguredHosts(String host) throws Exception {
+    @ValueSource(strings = {"evil.example", "203.0.113.11"})
+    void rejectsForeignHosts(String host) throws Exception {
         mvc.perform(get(URI.create("http://" + host + ":8080/api/v1/session")))
                 .andExpect(status().isForbidden());
     }

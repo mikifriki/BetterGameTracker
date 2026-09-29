@@ -3,7 +3,6 @@ package com.bettergametracker.security;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bettergametracker.api.ApiProblemWriter;
-import com.bettergametracker.config.LocalNetworkConfiguration;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,11 +24,9 @@ public class SecurityConfiguration {
 
     @Bean
     @Profile("local")
-    SecurityFilterChain localSecurity(HttpSecurity http, ApiProblemWriter problems,
-            LocalNetworkConfiguration network) throws Exception {
-        return http.addFilterBefore(new LocalRequestFilter(problems, network), CsrfFilter.class)
+    SecurityFilterChain localSecurity(HttpSecurity http, ApiProblemWriter problems) throws Exception {
+        return http.addFilterBefore(new LocalRequestFilter(problems), CsrfFilter.class)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
-                .csrf(csrf -> { if (!network.isLanEnabled()) csrf.disable(); })
                 .exceptionHandling(errors -> errors.accessDeniedHandler((request, response, exception) ->
                         problems.write(request, response, HttpStatus.FORBIDDEN,
                                 "Invalid or expired CSRF token. Reload the page and try again.")))
