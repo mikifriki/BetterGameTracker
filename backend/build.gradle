@@ -96,13 +96,16 @@ tasks.register('buildNative', GradleBuild) {
 // Native packaging is opt-in; regular JAR builds do not run AOT processing.
 if (providers.gradleProperty('native').isPresent()) {
     apply plugin: 'org.graalvm.buildtools.native'
+    def windows = System.getProperty('os.name').startsWith('Windows')
     graalvmNative {
-        toolchainDetection = true
+        toolchainDetection = !windows
         binaries {
             main {
-                javaLauncher = javaToolchains.launcherFor {
-                    languageVersion = JavaLanguageVersion.of(21)
-                    nativeImageCapable = true
+                if (!windows) {
+                    javaLauncher = javaToolchains.launcherFor {
+                        languageVersion = JavaLanguageVersion.of(21)
+                        nativeImageCapable = true
+                    }
                 }
                 imageName = 'BetterGameTracker'
                 buildArgs.add('-H:+AddAllCharsets')
