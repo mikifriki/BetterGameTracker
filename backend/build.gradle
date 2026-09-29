@@ -108,6 +108,9 @@ if (providers.gradleProperty('native').isPresent()) {
                     }
                 }
                 imageName = 'BetterGameTracker'
+                if (System.getProperty('os.arch') in ['amd64', 'x86_64']) {
+                    buildArgs.add('-march=x86-64-v2')
+                }
                 buildArgs.add('-H:+AddAllCharsets')
             }
         }
