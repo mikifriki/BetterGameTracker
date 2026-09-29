@@ -1,9 +1,9 @@
 name: Backend release checks
 on:
   push:
-    paths: ['backend/**', '.github/workflows/backend.yml']
+    paths: ['backend/**', 'frontend/**', '.github/workflows/backend.yml']
   pull_request:
-    paths: ['backend/**', '.github/workflows/backend.yml']
+    paths: ['backend/**', 'frontend/**', '.github/workflows/backend.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,6 +30,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew build
         env:
@@ -45,7 +48,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-14]
+        include:
+          - os: windows-latest
+            artifact: BetterGameTracker-windows-x86_64
+          - os: macos-14
+            artifact: BetterGameTracker-macos-14
+          - os: ubuntu-24.04
+            artifact: BetterGameTracker-linux-x86_64
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -58,16 +67,27 @@ jobs:
           java-version: '21'
           distribution: graalvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Install Linux native-image prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential zlib1g-dev
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - run: ./gradlew -Pnative nativeCompile
       - name: Smoke test native executable
         run: |
           binary=build/native/nativeCompile/BetterGameTracker
-          if [[ "$RUNNER_OS" == "Windows" ]]; then binary="$binary.exe"; fi
-          python scripts/smoke.py "$binary"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python scripts/smoke.py "$binary.exe"
+          else
+            python3 scripts/smoke.py "$binary"
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: BetterGameTracker-${{ matrix.os }}
+          name: ${{ matrix.artifact }}
           path: backend/build/native/nativeCompile/BetterGameTracker*
