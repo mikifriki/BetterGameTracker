@@ -1,0 +1,93 @@
+name: Backend release checks
+on:
+  push:
+    paths: ['backend/**', 'frontend/**', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', 'frontend/**', '.github/workflows/backend.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: bgt_test
+          POSTGRES_USER: bgt_test
+          POSTGRES_PASSWORD: test-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U bgt_test -d bgt_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew build
+        env:
+          BGT_TEST_POSTGRES_URL: jdbc:postgresql://localhost:5432/bgt_test
+          BGT_TEST_POSTGRES_USERNAME: bgt_test
+          BGT_TEST_POSTGRES_PASSWORD: test-only-password
+      - run: python3 scripts/smoke.py java -jar build/libs/better-game-tracker-backend-0.0.1-SNAPSHOT.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/build/libs/*.jar
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: BetterGameTracker-windows-x86_64
+          - os: macos-14
+            artifact: BetterGameTracker-macos-14
+          - os: ubuntu-24.04
+            artifact: BetterGameTracker-linux-x86_64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: backend
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: graalvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Linux native-image prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential zlib1g-dev
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - run: ./gradlew -Pnative nativeCompile
+      - name: Smoke test native executable
+        run: |
+          binary=build/native/nativeCompile/BetterGameTracker
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python scripts/smoke.py "$binary.exe"
+          else
+            python3 scripts/smoke.py "$binary"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: backend/build/native/nativeCompile/BetterGameTracker*

@@ -103,6 +103,25 @@ class DomainRelationshipTests {
     }
 
     @Test
+    void repeatedAddsAndUnrelatedRemovalsLeaveRelationshipsIntact() {
+        Game game = new Game("Game");
+        PlayEntry play = new PlayEntry();
+        Review review = new Review();
+        game.addPlayEntry(play);
+        game.addPlayEntry(play);
+        play.addReview(review);
+        play.addReview(review);
+
+        new Game("Other").removePlayEntry(play);
+        new PlayEntry().removeReview(review);
+
+        assertThat(game.getPlayEntries()).containsExactly(play);
+        assertThat(play.getGame()).isSameAs(game);
+        assertThat(play.getReviews()).containsExactly(review);
+        assertThat(review.getPlayEntry()).isSameAs(play);
+    }
+
+    @Test
     void removingChildrenClearsBothSidesOfTheirRelationships() {
         Game game = new Game("Game");
         PlayEntry playEntry = new PlayEntry();

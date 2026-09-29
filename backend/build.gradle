@@ -1,6 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.0'
+    id 'org.graalvm.buildtools.native' version '0.10.6' apply false
+    id 'org.springframework.boot' version '3.5.16'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -19,6 +20,8 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.hibernate.orm:hibernate-community-dialects'
@@ -27,8 +30,93 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+def frontendDirectory = file('../frontend')
+def nodeBinDirectory = providers.gradleProperty('nodeBinDirectory')
+def npmExecutable = System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm'
+if (nodeBinDirectory.isPresent()) {
+    npmExecutable = file("${nodeBinDirectory.get()}/${npmExecutable}").absolutePath
+}
+
+tasks.register('installFrontend', Exec) {
+    workingDir frontendDirectory
+    commandLine npmExecutable, 'ci'
+    inputs.files('../frontend/package.json', '../frontend/package-lock.json')
+    outputs.dir('../frontend/node_modules')
+}
+
+tasks.register('buildFrontend', Exec) {
+    dependsOn 'installFrontend'
+    workingDir frontendDirectory
+    commandLine npmExecutable, 'run', 'build'
+    inputs.files(fileTree('../frontend/src'), '../frontend/angular.json', '../frontend/tsconfig.json',
+            '../frontend/tsconfig.app.json')
+    outputs.dir('../frontend/dist/better-game-tracker/browser')
+}
+
+tasks.register('testFrontend', Exec) {
+    dependsOn 'installFrontend'
+    mustRunAfter 'buildFrontend'
+    workingDir frontendDirectory
+    commandLine npmExecutable, 'test'
+    inputs.files(fileTree('../frontend/src'), '../frontend/angular.json', '../frontend/tsconfig.json',
+            '../frontend/tsconfig.spec.json')
+}
+
+if (nodeBinDirectory.isPresent()) {
+    ['installFrontend', 'buildFrontend', 'testFrontend'].each { taskName ->
+        tasks.named(taskName, Exec) {
+            environment 'PATH', nodeBinDirectory.get() + File.pathSeparator + System.getenv('PATH')
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'testFrontend'
+}
+
+tasks.named('processResources') {
+    dependsOn 'buildFrontend'
+    from('../frontend/dist/better-game-tracker/browser') { into 'static' }
+}
+
+tasks.register('buildNative', GradleBuild) {
+    group = 'build'
+    description = 'Builds the local native executable using an installed GraalVM JDK 21.'
+    tasks = ['nativeCompile']
+    startParameter.projectProperties = gradle.startParameter.projectProperties + [native: '']
+}
+
+// Native packaging is opt-in; regular JAR builds do not run AOT processing.
+if (providers.gradleProperty('native').isPresent()) {
+    apply plugin: 'org.graalvm.buildtools.native'
+    def windows = System.getProperty('os.name').startsWith('Windows')
+    graalvmNative {
+        toolchainDetection = !windows
+        binaries {
+            main {
+                if (!windows) {
+                    javaLauncher = javaToolchains.launcherFor {
+                        languageVersion = JavaLanguageVersion.of(21)
+                        nativeImageCapable = true
+                    }
+                }
+                imageName = 'BetterGameTracker'
+                if (System.getProperty('os.arch') in ['amd64', 'x86_64']) {
+                    buildArgs.add('-march=x86-64-v2')
+                }
+                buildArgs.add('-H:+AddAllCharsets')
+            }
+        }
+    }
+    tasks.named('processAot') {
+        args '--spring.profiles.active=local',
+                "--BETTER_GAME_TRACKER_DATABASE_PATH=${layout.buildDirectory.file('aot-storage/app.db').get().asFile.absolutePath}"
+    }
 }

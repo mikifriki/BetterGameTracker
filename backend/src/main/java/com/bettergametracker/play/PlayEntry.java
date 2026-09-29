@@ -1,9 +1,10 @@
 package com.bettergametracker.play;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 import com.bettergametracker.game.Game;
@@ -11,6 +12,8 @@ import com.bettergametracker.review.Review;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,31 +31,22 @@ public class PlayEntry {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    /**
-     * The Go GameEntryDetails.Id value, retained separately from the UUID primary key.
-     */
-    @Column
-    private Integer legacyId;
+    @Column(precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1)")
+    private BigDecimal playthroughRating;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String playthroughRating;
+    private LocalDate startDate;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String completionDate;
+    private LocalDate completionDate;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String platformPlayedOn;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String timeToBeat;
+    private Integer timeToBeatMinutes;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String completionRate;
+    @Enumerated(EnumType.STRING)
+    private CompletionStatus completionStatus;
 
-    @Column(columnDefinition = "TEXT")
-    private String coop;
+    private Boolean coop;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String location;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -73,35 +67,34 @@ public class PlayEntry {
     private List<PlayTimeEntry> timeEntries = new ArrayList<>();
 
     public PlayEntry() {
-        // Required by JPA.
     }
 
     public UUID getId() {
         return id;
     }
 
-    public Integer getLegacyId() {
-        return legacyId;
-    }
-
-    public void setLegacyId(Integer legacyId) {
-        this.legacyId = Objects.requireNonNull(legacyId, "legacyId must not be null");
-    }
-
-    public String getPlaythroughRating() {
+    public BigDecimal getPlaythroughRating() {
         return playthroughRating;
     }
 
-    public void setPlaythroughRating(String playthroughRating) {
-        this.playthroughRating = Objects.requireNonNull(playthroughRating, "playthroughRating must not be null");
+    public void setPlaythroughRating(BigDecimal playthroughRating) {
+        this.playthroughRating = playthroughRating;
     }
 
-    public String getCompletionDate() {
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getCompletionDate() {
         return completionDate;
     }
 
-    public void setCompletionDate(String completionDate) {
-        this.completionDate = Objects.requireNonNull(completionDate, "completionDate must not be null");
+    public void setCompletionDate(LocalDate completionDate) {
+        this.completionDate = completionDate;
     }
 
     public String getPlatformPlayedOn() {
@@ -109,30 +102,30 @@ public class PlayEntry {
     }
 
     public void setPlatformPlayedOn(String platformPlayedOn) {
-        this.platformPlayedOn = Objects.requireNonNull(platformPlayedOn, "platformPlayedOn must not be null");
+        this.platformPlayedOn = platformPlayedOn;
     }
 
-    public String getTimeToBeat() {
-        return timeToBeat;
+    public Integer getTimeToBeatMinutes() {
+        return timeToBeatMinutes;
     }
 
-    public void setTimeToBeat(String timeToBeat) {
-        this.timeToBeat = Objects.requireNonNull(timeToBeat, "timeToBeat must not be null");
+    public void setTimeToBeatMinutes(Integer timeToBeatMinutes) {
+        this.timeToBeatMinutes = timeToBeatMinutes;
     }
 
-    public String getCompletionRate() {
-        return completionRate;
+    public CompletionStatus getCompletionStatus() {
+        return completionStatus;
     }
 
-    public void setCompletionRate(String completionRate) {
-        this.completionRate = Objects.requireNonNull(completionRate, "completionRate must not be null");
+    public void setCompletionStatus(CompletionStatus completionStatus) {
+        this.completionStatus = completionStatus;
     }
 
-    public String getCoop() {
+    public Boolean getCoop() {
         return coop;
     }
 
-    public void setCoop(String coop) {
+    public void setCoop(Boolean coop) {
         this.coop = coop;
     }
 
@@ -141,15 +134,11 @@ public class PlayEntry {
     }
 
     public void setLocation(String location) {
-        this.location = Objects.requireNonNull(location, "location must not be null");
+        this.location = location;
     }
 
     public Game getGame() {
         return game;
-    }
-
-    public void setGame(Game game) {
-        assignGame(Objects.requireNonNull(game, "game must not be null"));
     }
 
     public List<Review> getReviews() {
@@ -157,23 +146,16 @@ public class PlayEntry {
     }
 
     public void addReview(Review review) {
-        Review requiredReview = Objects.requireNonNull(review, "review must not be null");
-        if (requiredReview.getPlayEntry() != this) {
-            requiredReview.assignPlayEntry(this);
-        }
-        if (!reviews.contains(requiredReview)) {
-            reviews.add(requiredReview);
+        boolean unattached = review.getPlayEntry() == null;
+        review.assignPlayEntry(this);
+        if (unattached || !reviews.contains(review)) {
+            reviews.add(review);
         }
     }
 
     public void removeReview(Review review) {
-        if (review == null) {
-            return;
-        }
-        if (review.getPlayEntry() == this) {
+        if (reviews.remove(review)) {
             review.assignPlayEntry(null);
-        } else {
-            reviews.remove(review);
         }
     }
 
@@ -182,52 +164,33 @@ public class PlayEntry {
     }
 
     public void addTimeEntry(PlayTimeEntry timeEntry) {
-        PlayTimeEntry requiredTimeEntry = Objects.requireNonNull(timeEntry, "timeEntry must not be null");
-        if (requiredTimeEntry.getPlayEntry() != this) {
-            requiredTimeEntry.assignPlayEntry(this);
-        }
-        if (!timeEntries.contains(requiredTimeEntry)) {
-            timeEntries.add(requiredTimeEntry);
+        boolean unattached = timeEntry.getPlayEntry() == null;
+        timeEntry.assignPlayEntry(this);
+        if (unattached || !timeEntries.contains(timeEntry)) {
+            timeEntries.add(timeEntry);
         }
     }
 
     public void removeTimeEntry(PlayTimeEntry timeEntry) {
-        if (timeEntry == null) {
-            return;
-        }
-        if (timeEntry.getPlayEntry() == this) {
+        if (timeEntries.remove(timeEntry)) {
             timeEntry.assignPlayEntry(null);
-        } else {
-            timeEntries.remove(timeEntry);
         }
     }
 
     /**
-     * Synchronizes the owning Game relation. A null value is used only while removing a play entry.
+     * Updates only the owning side; use Game.addPlayEntry/removePlayEntry to manage the relationship.
      */
     public void assignGame(Game game) {
         if (sameGame(this.game, game)) {
             return;
         }
-        if (game != null) {
-            Game establishedGame = initialGame != null ? initialGame : this.game;
-            if (establishedGame != null && !sameGame(establishedGame, game)) {
-                throw new IllegalStateException("A play entry cannot be reassigned to a different game");
-            }
-            if (initialGame == null) {
-                initialGame = establishedGame != null ? establishedGame : game;
-            }
-        } else if (initialGame == null && this.game != null) {
+        if (initialGame == null) {
             initialGame = this.game;
         }
-        Game previousGame = this.game;
+        if (game != null && initialGame != null && !sameGame(initialGame, game)) {
+            throw new IllegalStateException("A play entry cannot be reassigned to a different game");
+        }
         this.game = game;
-        if (previousGame != null) {
-            previousGame.removePlayEntry(this);
-        }
-        if (game != null) {
-            game.addPlayEntry(this);
-        }
     }
 
     private static boolean sameGame(Game first, Game second) {
