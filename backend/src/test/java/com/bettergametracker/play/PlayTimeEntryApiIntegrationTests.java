@@ -156,6 +156,30 @@ class PlayTimeEntryApiIntegrationTests {
         mockMvc.perform(delete(game)).andExpect(status().isNoContent());
     }
 
+    @Test
+    void accepts5000CharacterNotesAndRejectsLongerNotesForCreateAndUpdate() throws Exception {
+        String game = create("/api/v1/games", GAME);
+        String play = create(game + "/plays", PLAY);
+        String collection = play + "/time-entries";
+        String notes = "n".repeat(5000);
+        String entry = create(collection, TIME.replace("Evening session", notes));
+        String updatedNotes = "u".repeat(5000);
+        mockMvc.perform(put(entry).contentType(MediaType.APPLICATION_JSON)
+                        .content(TIME.replace("Evening session", updatedNotes)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value(updatedNotes));
+        for (HttpMethod method : new HttpMethod[] {HttpMethod.POST, HttpMethod.PUT}) {
+            mockMvc.perform(request(method, method == HttpMethod.POST ? collection : entry)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(TIME.replace("Evening session", "n".repeat(5001))))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(get(collection)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].notes").value(updatedNotes));
+        mockMvc.perform(delete(game)).andExpect(status().isNoContent());
+    }
+
     private String create(String collection, String body) throws Exception {
         var response = mockMvc.perform(post(collection).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn().getResponse();
