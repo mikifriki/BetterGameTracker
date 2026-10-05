@@ -38,6 +38,7 @@ public class PlayTimeEntry {
     @Column(nullable = false)
     private int durationMinutes;
 
+    @Column(length = 5000)
     private String notes;
 
     public PlayTimeEntry() {

@@ -15,7 +15,7 @@ import { TimeEntry, TimeEntryInput } from '../core/models';
         <div class="form-grid">
           <label>Date <input type="date" formControlName="date" required></label>
           <fieldset class="duration-fields"><legend>Duration</legend><label>Hours <input type="number" formControlName="hours" min="0" step="1"></label><label>Minutes <input type="number" formControlName="minutes" min="0" max="59" step="1"></label></fieldset>
-          <label class="full">Notes <textarea formControlName="notes" maxlength="255" rows="5"></textarea></label>
+          <label class="full">Notes <textarea formControlName="notes" maxlength="5000" rows="5"></textarea></label>
         </div>
         @if (form.touched && form.invalid) { <p class="form-error" role="alert">Enter a date and a duration greater than zero, using whole hours and minutes (at most 2,147,483,647 minutes).</p> }
         @if (error()) { <p class="form-error" role="alert">{{ error() }}</p> }
@@ -43,7 +43,7 @@ export class TimeEntryEditor implements AfterViewInit {
     date: new FormControl(this.defaultDate, { nonNullable: true, validators: Validators.required }),
     hours: new FormControl<number>(0, { nonNullable: true, validators: Validators.min(0) }),
     minutes: new FormControl<number>(0, { nonNullable: true, validators: [Validators.min(0), Validators.max(59)] }),
-    notes: new FormControl<string | null>(null, Validators.maxLength(255))
+    notes: new FormControl<string | null>(null, Validators.maxLength(5000))
   }, { validators: control => {
     const { hours, minutes } = control.value;
     const total = (hours ?? 0) * 60 + (minutes ?? 0);

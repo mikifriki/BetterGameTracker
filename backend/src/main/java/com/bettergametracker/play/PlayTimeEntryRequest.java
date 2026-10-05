@@ -13,5 +13,5 @@ public record PlayTimeEntryRequest(
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "uuuu-MM-dd", lenient = OptBoolean.FALSE)
         LocalDate date,
         @Positive int durationMinutes,
-        @Size(max = 255) String notes) {
+        @Size(max = 5000) String notes) {
 }

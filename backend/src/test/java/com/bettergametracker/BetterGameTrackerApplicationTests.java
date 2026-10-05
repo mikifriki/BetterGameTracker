@@ -62,7 +62,7 @@ class BetterGameTrackerApplicationTests {
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE type = 'SQL' AND success = 1", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN "
                         + "('application_users', 'games', 'play_entries', 'reviews', 'play_time_entries')",
