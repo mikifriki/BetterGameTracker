@@ -2,6 +2,14 @@ spring:
   config:
     activate:
       on-profile: hosted
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${BETTER_GAME_TRACKER_GOOGLE_CLIENT_ID}
+            client-secret: ${BETTER_GAME_TRACKER_GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
   datasource:
     url: ${BETTER_GAME_TRACKER_DATABASE_URL}
     username: ${BETTER_GAME_TRACKER_DATABASE_USERNAME}
@@ -12,3 +20,14 @@ spring:
   flyway:
     placeholders:
       uuidType: UUID
+
+better-game-tracker:
+  cover-directory: ${BETTER_GAME_TRACKER_COVER_DIRECTORY}
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: lax

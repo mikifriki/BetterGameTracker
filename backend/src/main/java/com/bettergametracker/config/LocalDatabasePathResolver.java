@@ -1,41 +1,62 @@
 package com.bettergametracker.config;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
+import java.security.CodeSource;
+
+import com.bettergametracker.BetterGameTrackerApplication;
+import org.springframework.boot.system.ApplicationHome;
+import org.springframework.core.NativeDetector;
+import org.springframework.util.ResourceUtils;
 
 public final class LocalDatabasePathResolver {
 
-    private static final String DATABASE_FILE_NAME = "better-game-tracker.db";
-
-    public Path resolve(Map<String, String> environment, String operatingSystem, Path userHome) throws IOException {
-        String configuredPath = environment.get("BETTER_GAME_TRACKER_DATABASE_PATH");
-        Path databasePath = configuredPath == null || configuredPath.isBlank()
-                ? defaultPath(environment, operatingSystem, userHome)
-                : Path.of(configuredPath);
-
-        Path absoluteDatabasePath = databasePath.toAbsolutePath().normalize();
-        Files.createDirectories(absoluteDatabasePath.getParent());
-        return absoluteDatabasePath;
+    public Path resolve(String configuredPath) throws IOException {
+        if (configuredPath != null && !configuredPath.isBlank()) {
+            return resolve(configuredPath, null);
+        }
+        boolean nativeRuntime = NativeDetector.inNativeImage();
+        File source = nativeRuntime ? null : new ApplicationHome(BetterGameTrackerApplication.class).getSource();
+        // ApplicationHome deliberately hides the source when launched by JUnit.
+        if (!nativeRuntime && source == null) {
+            CodeSource codeSource = BetterGameTrackerApplication.class.getProtectionDomain().getCodeSource();
+            if (codeSource != null && "file".equals(codeSource.getLocation().getProtocol())) {
+                source = ResourceUtils.getFile(codeSource.getLocation());
+            }
+        }
+        Path location = nativeRuntime
+                ? ProcessHandle.current().info().command().map(Path::of).orElse(null)
+                : source == null ? null : source.toPath();
+        return resolve(configuredPath, applicationDirectory(location, nativeRuntime, Path.of("")));
     }
 
-    private Path defaultPath(Map<String, String> environment, String operatingSystem, Path userHome) {
-        if (operatingSystem.startsWith("Windows")) {
-            String localAppData = environment.get("LOCALAPPDATA");
-            Path baseDirectory = localAppData == null || localAppData.isBlank()
-                    ? userHome.resolve("AppData/Local")
-                    : Path.of(localAppData);
-            return baseDirectory.resolve("BetterGameTracker").resolve(DATABASE_FILE_NAME);
+    public Path applicationDirectory(Path source, boolean nativeRuntime, Path workingDirectory) throws IOException {
+        if (source == null || !source.isAbsolute()) {
+            throw new IOException("Cannot determine absolute application location: " + source);
         }
-        if (operatingSystem.startsWith("Mac")) {
-            return userHome.resolve("Library/Application Support/BetterGameTracker").resolve(DATABASE_FILE_NAME);
+        Path location = source.toRealPath();
+        if (Files.isRegularFile(location)
+                && (nativeRuntime || location.getFileName().toString().endsWith(".jar"))) {
+            return location.getParent();
         }
+        // A class directory is an explicit development launch, not a packaged-location fallback.
+        if (!nativeRuntime && Files.isDirectory(location)
+                && Files.isRegularFile(location.resolve("com/bettergametracker/BetterGameTrackerApplication.class"))) {
+            return workingDirectory.toAbsolutePath().normalize();
+        }
+        throw new IOException("Unrecognized application location: " + source);
+    }
 
-        String xdgDataHome = environment.get("XDG_DATA_HOME");
-        Path baseDirectory = xdgDataHome == null || xdgDataHome.isBlank()
-                ? userHome.resolve(".local/share")
-                : Path.of(xdgDataHome);
-        return baseDirectory.resolve("BetterGameTracker").resolve(DATABASE_FILE_NAME);
+    public Path resolve(String configuredPath, Path applicationDirectory) throws IOException {
+        Path databasePath = (configuredPath == null || configuredPath.isBlank()
+                ? applicationDirectory.resolve("db/better-game-tracker.db")
+                : Path.of(configuredPath)).toAbsolutePath().normalize();
+        Files.createDirectories(databasePath.getParent());
+        if (Files.exists(databasePath) && (!Files.isRegularFile(databasePath) || !Files.isWritable(databasePath))) {
+            throw new IOException("Local database is not a writable file: " + databasePath);
+        }
+        return databasePath;
     }
 }
