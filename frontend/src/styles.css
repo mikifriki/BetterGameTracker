@@ -224,6 +224,7 @@ textarea { resize: vertical; }
 .game-list, .journal-table { width: 100%; border-collapse: collapse; background: var(--bgt-surface-raised); font-size: 0.85rem; }
 .game-list th, .game-list td, .journal-table th, .journal-table td { padding: 7px 9px; border-bottom: 1px solid #b3c0c9; text-align: left; }
 .game-list thead, .journal-table thead { color: #fff; background: var(--bgt-header-light); }
+.game-list thead th, .journal-table thead th { white-space: nowrap; }
 .game-list tbody th { width: 48%; }
 .game-list tbody tr:nth-child(even) { background: #e8f1f7; }
 .game-list tbody tr:hover { background: #d9eafa; }
@@ -277,8 +278,9 @@ dd { margin: 1px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
 .metadata-section .description, .review-copy { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .metadata-list { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
 .play-summary { margin-top: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.journal-table tbody th, .journal-table td[data-label="Duration"] { width: 1%; white-space: nowrap; }
 .journal-table .notes { white-space: pre-wrap; overflow-wrap: anywhere; }
-.journal-table .row-actions { justify-content: flex-end; white-space: nowrap; }
+.journal-table .row-actions { display: table-cell; width: 1%; text-align: right; white-space: nowrap; }
 .review-entry { padding: 11px 9px; border-bottom: 1px solid #9eafb9; background: rgba(255, 255, 255, 0.5); }
 .review-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .review-heading h3, .review-heading p { margin-bottom: 2px; }
@@ -386,8 +388,9 @@ dialog form { padding: 14px; }
   .journal-table, .journal-table tbody, .journal-table tr, .journal-table th, .journal-table td { display: block; }
   .game-list tr, .journal-table tr { margin-bottom: 8px; padding: 8px; border: 1px solid var(--bgt-border); background: var(--bgt-surface-raised); }
   .game-list th, .game-list td, .journal-table th, .journal-table td { width: auto; padding: 3px 0; border: 0; }
+  .journal-table tbody th, .journal-table td[data-label="Duration"] { width: auto; }
   .game-list td[data-label]:not([data-label=""])::before, .journal-table td[data-label]:not([data-label=""])::before { content: attr(data-label) ': '; color: var(--bgt-text-muted); font-weight: 400; }
-  .journal-table .row-actions { justify-content: flex-start; }
+  .journal-table .row-actions { display: flex; width: auto; justify-content: flex-start; }
   .review-heading { flex-direction: column; }
   .site-footer { align-items: flex-start; flex-direction: column; gap: 4px; }
 }

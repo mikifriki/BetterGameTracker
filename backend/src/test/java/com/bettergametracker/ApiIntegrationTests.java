@@ -274,7 +274,8 @@ class ApiIntegrationTests {
                             || field.equals("startDate") || field.equals("completionDate") || field.equals("reviewDate")) {
                         continue;
                     }
-                    int limit = field.equals("description") ? 1000 : field.equals("review") ? 5000 : 255;
+                    int limit = field.equals("description") ? 1000
+                            : field.equals("review") || field.equals("notes") ? 5000 : 255;
                     for (String method : java.util.List.of("POST", "PUT")) {
                         String path = method.equals("POST") ? resource.substring(0, resource.lastIndexOf('/')) : resource;
                         var requestBody = body.deepCopy().put(field, "x".repeat(limit));
